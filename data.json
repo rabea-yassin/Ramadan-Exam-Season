@@ -1,0 +1,18 @@
+{
+  "streak": 0,
+  "lastDate": "",
+  "studyMins": 0,
+  "ytMins": 0,
+  "pomsToday": 0,
+  "weekData": {},
+  "studyGoal": 180,
+  "ytAllowance": 30,
+  "timerState": null,
+  "exams": [],
+  "topics": [],
+  "tasks": [],
+  "pinnedToChecklist": [],
+  "checklist": {},
+  "videos": [],
+  "battleLog": {}
+}

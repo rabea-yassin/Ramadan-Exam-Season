@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Battle Log — Command Center</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/src/css/style.css">
+<style>
+.db-row  { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 11px; }
+.db      { padding: 4px 11px; border-radius: 6px; border: 1px solid var(--border);
+           background: none; font-size: 11px; cursor: pointer;
+           font-family: 'DM Mono', monospace; color: var(--t2); transition: all .15s; }
+.db:hover           { border-color: var(--text); color: var(--text); }
+.db.active          { background: var(--dark); color: white; border-color: var(--dark); }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="main">
+  <div class="page">
+
+    <div class="page-h1">Battle Log</div>
+    <div class="page-sub">What worked? What confused you? What is tomorrow's first task?</div>
+
+    <div class="db-row" id="dateRow"></div>
+    <div style="font-size:11px;color:var(--t3);margin-bottom:7px" id="viewLbl"></div>
+    <textarea class="input" id="la" rows="14"
+      placeholder="Write anything. Topics covered, confusions, tomorrow's first task..."></textarea>
+    <div style="margin-top:7px;font-size:11px;color:var(--t3)">Auto-saved as you type.</div>
+
+  </div>
+  </main>
+</div>
+<script src="/src/js/db.js">})();
+</script>
+<script src="/src/js/nav.js">})();
+</script>
+<script>
+(async function() {
+  await Nav.init('battlelog');
+
+let vd = DB.today();
+
+function fmtDate(d) {
+  const [y, m, day] = d.split('-').map(Number);
+  return new Date(y, m - 1, day).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function renderDates() {
+  const row = document.getElementById('dateRow');
+  row.innerHTML = '';
+  const ds = new Set([DB.today()]);
+  Object.keys(DB.get('battleLog')).forEach(d => ds.add(d));
+  [...ds].sort((a, b) => b.localeCompare(a)).slice(0, 10).forEach(d => {
+    const b = document.createElement('button');
+    b.className = 'db' + (d === vd ? ' active' : '');
+    b.textContent = d === DB.today() ? 'Today' : fmtDate(d);
+    b.onclick = () => { vd = d; renderDates(); renderArea(); };
+    row.appendChild(b);
+  });
+}
+
+function renderArea() {
+  const a = document.getElementById('la');
+  a.value = DB.get('battleLog')[vd] || '';
+  document.getElementById('viewLbl').textContent =
+    vd === DB.today() ? 'Writing for today' : 'Viewing: ' + fmtDate(vd);
+  a.oninput = () => {
+    const bl = DB.get('battleLog');
+    bl[vd] = a.value;
+    DB.set('battleLog', bl);
+  };
+}
+
+renderDates();
+// Expose functions globally
+window.renderArea = renderArea;
+
+renderArea();
+})();
+</script>
+</body>
+</html>

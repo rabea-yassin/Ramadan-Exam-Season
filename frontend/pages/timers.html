@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Timers — Command Center</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/src/css/style.css">
+<style>
+.p-btn{padding:3px 12px;border-radius:20px;border:1px solid var(--border);background:none;font-size:11px;cursor:pointer;color:var(--t2);font-family:'DM Mono',monospace;transition:all .14s}
+.p-btn:hover,.p-btn.sel{border-color:var(--text);color:var(--text);background:var(--s2)}
+.preset-row { display:flex; gap:5px; justify-content:center; flex-wrap:wrap; margin-bottom:14px; }
+.mins-row   { margin-top:18px; padding:13px 16px; background:var(--s2); border-radius:9px;
+              display:flex; align-items:center; gap:16px; max-width:640px; }
+.mins-big   { font-family:'DM Mono',monospace; font-size:26px; color:var(--text); flex-shrink:0; }
+.break-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(148px,1fr)); gap:7px; margin-top:8px; }
+.break-tip  { background:var(--s2); border-radius:7px; padding:9px 11px; font-size:12px; color:var(--t2); }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="main">
+  <div class="page">
+
+    <div class="page-h1">Timers</div>
+    <div class="page-sub">Space bar starts / pauses the Pomodoro</div>
+
+    <div class="g2" style="max-width:640px;margin-bottom:18px">
+
+      <!-- POMODORO -->
+      <div class="timer-card tc-green" id="pomCard">
+        <div class="t-label">POMODORO · STUDY</div>
+        <div class="preset-row">
+          <button class="filter-pill sel" onclick="setPre('pom',25,this)">25m</button>
+          <button class="filter-pill"     onclick="setPre('pom',30,this)">30m</button>
+          <button class="filter-pill"     onclick="setPre('pom',45,this)">45m</button>
+          <button class="filter-pill"     onclick="setPre('pom',50,this)">50m</button>
+        </div>
+        <div class="t-disp" id="pomDisp">25:00</div>
+        <div class="t-hint" id="pomHint">Phone in another room. Sound on.</div>
+        <div class="t-ctrl">
+          <button class="btn btn-green" id="pomBtn" onclick="togglePom()">Start</button>
+          <button class="btn btn-ghost"              onclick="resetPom()">Reset</button>
+        </div>
+        <div class="t-pbar-wrap"><div class="t-pbar" id="pomBar" style="width:100%"></div></div>
+        <div class="pom-dots" id="pomDots"></div>
+      </div>
+
+      <!-- REST TIMER -->
+      <div class="timer-card tc-orange" id="ytCard">
+        <div class="t-label">REST · BREAK TIMER</div>
+        <div class="preset-row">
+          <button class="filter-pill sel" onclick="setPre('yt',10,this)">10m</button>
+          <button class="filter-pill"     onclick="setPre('yt',15,this)">15m</button>
+          <button class="filter-pill"     onclick="setPre('yt',20,this)">20m</button>
+        </div>
+        <div class="t-disp" id="ytDisp">10:00</div>
+        <div class="t-hint" id="ytHint">Earned after a completed Pomodoro.</div>
+        <div class="t-ctrl">
+          <button class="btn btn-orange" id="ytBtn" onclick="toggleYt()">▶ Start</button>
+          <button class="btn btn-ghost"              onclick="resetYt()">Reset</button>
+        </div>
+        <div class="t-pbar-wrap"><div class="t-pbar" id="ytBar" style="width:100%"></div></div>
+      </div>
+
+    </div>
+
+    <!-- Study minutes row -->
+    <div class="mins-row">
+      <div class="mins-big" id="minsNum">0m</div>
+      <div style="flex:1">
+        <div style="font-size:11px;color:var(--t2);margin-bottom:4px">
+          Study mins today · <span id="minsGoal" style="color:var(--t3)">Goal: 180m</span>
+        </div>
+        <div class="pbar-wrap">
+          <div class="pbar" id="minsBar" style="background:var(--green);width:0%"></div>
+        </div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-family:'DM Mono',monospace;font-size:13px" id="ytUsed">0m</div>
+        <div style="font-size:10px;color:var(--t3)">YT used</div>
+      </div>
+    </div>
+
+    <!-- Break suggestions -->
+    <div class="card-sm" style="max-width:640px;margin-top:14px">
+      <span class="slabel">Break suggestions</span>
+      <div class="break-grid">
+        <div class="break-tip">✦ Splash water on face</div>
+        <div class="break-tip">✦ Stand up · 20 steps</div>
+        <div class="break-tip">✦ Dhikr a few minutes</div>
+        <div class="break-tip">✦ Eyes closed 5 min</div>
+        <div class="break-tip">✦ Stretch arms + neck</div>
+        <div class="break-tip">✦ Drink water</div>
+      </div>
+    </div>
+
+    <!-- Heatmap -->
+    <div style="max-width:640px;margin-top:20px">
+      <span class="slabel">This week</span>
+      <div class="card" style="margin-top:7px">
+        <div class="week-grid" id="weekGrid"></div>
+      </div>
+    </div>
+
+  </div>
+  </main>
+</div>
+
+<script src="/src/js/db.js">})();
+</script>
+<script src="/src/js/nav.js">})();
+</script>
+<script>
+(async function() {
+  await Nav.init('timers');
+
+// ── Timer state ───────────────────────────────
+let pomDur = 25*60, pomRem = 25*60, pomRun = false, pomInt = null;
+let ytDur  = 10*60, ytRem  = 10*60, ytRun  = false, ytInt  = null;
+
+// ── Restore timer state from localStorage ─────
+function restoreTimers() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('timerState'));
+    if (!saved) return;
+    
+    const elapsed = Math.floor((Date.now() - saved.timestamp) / 1000);
+    
+    // Restore Pomodoro
+    if (saved.pomRem > 0 && saved.pomRun) {
+      pomDur = saved.pomDur;
+      pomRem = Math.max(0, saved.pomRem - elapsed);
+      document.getElementById('pomDisp').textContent = fmt(pomRem);
+      document.getElementById('pomBar').style.width = (pomRem / pomDur * 100) + '%';
+      if (pomRem > 0) togglePom();
+    }
+    
+    // Restore YouTube
+    if (saved.ytRem > 0 && saved.ytRun) {
+      ytDur = saved.ytDur;
+      ytRem = Math.max(0, saved.ytRem - elapsed);
+      document.getElementById('ytDisp').textContent = fmt(ytRem);
+      document.getElementById('ytBar').style.width = (ytRem / ytDur * 100) + '%';
+      if (ytRem > 0) toggleYt();
+    }
+  } catch (e) {
+    // Ignore errors
+  }
+}
+
+// ── Save timer state (only when needed) ──────────
+function saveTimerState() {
+  // Save to localStorage only (not server) for quick persistence
+  localStorage.setItem('timerState', JSON.stringify({
+    pomDur, pomRem, pomRun,
+    ytDur, ytRem, ytRun,
+    timestamp: Date.now()
+  }));
+}
+
+// Clear state when page unloads if timers stopped
+window.addEventListener('beforeunload', () => {
+  if (!pomRun && !ytRun) {
+    localStorage.removeItem('timerState');
+  }
+});
+
+function fmt(s) {
+  return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+}
+
+// ── Preset selection ──────────────────────────
+function setPre(type, min, btn) {
+  if (type === 'pom' && pomRun) return;
+  if (type === 'yt'  && ytRun)  return;
+  const cls = type === 'pom' ? '.tc-green .filter-pill' : '.tc-orange .filter-pill';
+  document.querySelectorAll(cls).forEach(b => b.classList.remove('sel'));
+  btn.classList.add('sel');
+  if (type === 'pom') {
+    pomDur = pomRem = min * 60;
+    document.getElementById('pomDisp').textContent = fmt(pomDur);
+    document.getElementById('pomBar').style.width  = '100%';
+  } else {
+    ytDur = ytRem = min * 60;
+    document.getElementById('ytDisp').textContent = fmt(ytDur);
+    document.getElementById('ytBar').style.width  = '100%';
+  }
+}
+
+// ── Pomodoro ──────────────────────────────────
+function togglePom() {
+  if (ytRun) {
+    toast('Stop Rest timer first', 'Only one timer at a time');
+    return;
+  }
+  if (pomRun) {
+    clearInterval(pomInt); pomRun = false;
+    document.getElementById('pomBtn').textContent = '▶ Resume';
+    saveTimerState(); // Save when pausing
+    return;
+  }
+  pomRun = true;
+  document.getElementById('pomBtn').textContent = '⏸ Pause';
+  saveTimerState(); // Save when starting
+  pomInt = setInterval(() => {
+    if (!pomRun) return;
+    pomRem--;
+    document.getElementById('pomDisp').textContent = fmt(pomRem);
+    document.getElementById('pomBar').style.width  = (pomRem / pomDur * 100) + '%';
+    document.getElementById('pomCard').classList.toggle('warn', pomRem > 0 && pomRem <= 60);
+    
+    // Save every 10 seconds (not every second)
+    if (pomRem % 10 === 0) saveTimerState();
+    
+    if (pomRem <= 0) {
+      clearInterval(pomInt); pomRun = false;
+      document.getElementById('pomCard').classList.remove('warn');
+      document.getElementById('pomBtn').textContent  = '▶ Start';
+      document.getElementById('pomHint').textContent = '✓ Done! Take a 10-min break.';
+
+      // Save to server ONLY on completion
+      DB.set('pomsToday', DB.get('pomsToday') + 1);
+      const wd = DB.get('weekData');
+      const td = DB.today(); wd[td] = (wd[td] || 0) + 1;
+      DB.set('weekData', wd);
+      DB.set('studyMins', DB.get('studyMins') + Math.round(pomDur / 60));
+      localStorage.removeItem('timerState'); // Clear localStorage
+
+      syncUI(); renderDots(); renderHeat();
+      toast('Pomodoro complete! 🎉', 'Take your break. You earned it.');
+
+      pomRem = pomDur;
+      setTimeout(() => {
+        document.getElementById('pomDisp').textContent = fmt(pomDur);
+        document.getElementById('pomBar').style.width  = '100%';
+        document.getElementById('pomHint').textContent = 'Phone in another room. Sound on.';
+      }, 5000);
+    }
+  }, 1000);
+}
+
+function resetPom() {
+  clearInterval(pomInt); pomRun = false; pomRem = pomDur;
+  localStorage.removeItem('timerState');
+  document.getElementById('pomDisp').textContent = fmt(pomDur);
+  document.getElementById('pomBtn').textContent  = '▶ Start';
+  document.getElementById('pomBar').style.width  = '100%';
+  document.getElementById('pomCard').classList.remove('warn');
+  document.getElementById('pomHint').textContent = 'Phone in another room. Sound on.';
+}
+
+// ── Rest timer ─────────────────────────────
+function toggleYt() {
+  if (pomRun) {
+    toast('Stop Pomodoro timer first', 'Only one timer at a time');
+    return;
+  }
+  if (ytRun) {
+    clearInterval(ytInt); ytRun = false;
+    document.getElementById('ytBtn').textContent = '▶ Resume';
+    saveTimerState(); // Save when pausing
+    return;
+  }
+  ytRun = true;
+  document.getElementById('ytBtn').textContent = '⏸ Pause';
+  saveTimerState(); // Save when starting
+  ytInt = setInterval(() => {
+    if (!ytRun) return;
+    ytRem--;
+    document.getElementById('ytDisp').textContent = fmt(ytRem);
+    document.getElementById('ytBar').style.width  = (ytRem / ytDur * 100) + '%';
+    document.getElementById('ytCard').classList.toggle('warn', ytRem > 0 && ytRem <= 60);
+    
+    // Save every 10 seconds
+    if (ytRem % 10 === 0) saveTimerState();
+    
+    if (ytRem <= 0) {
+      clearInterval(ytInt); ytRun = false;
+      document.getElementById('ytCard').classList.remove('warn');
+      document.getElementById('ytBtn').textContent  = '▶ Start';
+      document.getElementById('ytHint').textContent = '⚠ Time up. Take a break now.';
+
+      // Save to server ONLY on completion
+      DB.set('ytMins', DB.get('ytMins') + Math.round(ytDur / 60));
+      localStorage.removeItem('timerState');
+      syncUI();
+      toast('Rest time is up.', 'Close it. Back to work.');
+
+      ytRem = ytDur;
+      setTimeout(() => {
+        document.getElementById('ytDisp').textContent = fmt(ytDur);
+        document.getElementById('ytBar').style.width  = '100%';
+        document.getElementById('ytHint').textContent = 'Earned after a completed Pomodoro only.';
+      }, 5000);
+    }
+  }, 1000);
+}
+
+function resetYt() {
+  clearInterval(ytInt); ytRun = false; ytRem = ytDur;
+  localStorage.removeItem('timerState');
+  document.getElementById('ytDisp').textContent = fmt(ytDur);
+  document.getElementById('ytBtn').textContent  = '▶ Start';
+  document.getElementById('ytBar').style.width  = '100%';
+  document.getElementById('ytCard').classList.remove('warn');
+  document.getElementById('ytHint').textContent = 'Earned after a completed Pomodoro only.';
+}
+
+// ── UI ────────────────────────────────────────
+function syncUI() {
+  const mins = DB.get('studyMins'), goal = DB.get('studyGoal') || 180;
+  document.getElementById('minsNum').textContent  = mins + 'm';
+  document.getElementById('minsGoal').textContent = 'Goal: ' + goal + 'm';
+  document.getElementById('minsBar').style.width  = Math.min(100, mins / goal * 100) + '%';
+  document.getElementById('ytUsed').textContent   = DB.get('ytMins') + 'm';
+}
+
+function renderDots() {
+  const poms = DB.get('pomsToday');
+  const el = document.getElementById('pomDots'); el.innerHTML = '';
+  for (let i = 0; i < Math.max(4, poms); i++) {
+    const d = document.createElement('div');
+    d.className = 'pom-dot' + (i < poms ? ' done' : '');
+    el.appendChild(d);
+  }
+}
+
+function renderHeat() {
+  const wd = DB.get('weekData'); const today = DB.today();
+  const el = document.getElementById('weekGrid'); el.innerHTML = '';
+  const dl = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  for (let i = 6; i >= 0; i--) {
+    const dd  = new Date(Date.now() - i * 86400000);
+    const dds = dd.toISOString().slice(0, 10);
+    const p   = wd[dds] || 0;
+    const isT = dds === today;
+    const div = document.createElement('div'); div.className = 'wday';
+    div.innerHTML =
+      `<div class="wday-label">${dl[dd.getDay()]}</div>` +
+      `<div class="wday-block ${p > 0 ? 'has' : ''} ${isT ? 'today' : ''}">${p > 0 ? p : isT ? '·' : ''}</div>`;
+    el.appendChild(div);
+  }
+}
+
+// Space bar shortcut
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space' && e.target === document.body) { e.preventDefault(); togglePom(); }
+});
+
+// Expose functions globally
+window.setPre = setPre;
+window.togglePom = togglePom;
+window.resetPom = resetPom;
+window.toggleYt = toggleYt;
+window.resetYt = resetYt;
+
+syncUI(); renderDots(); renderHeat(); restoreTimers();
+})();
+</script>
+</body>
+</html>

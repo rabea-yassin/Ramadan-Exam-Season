@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dashboard — Command Center</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/src/css/style.css">
+<style>
+.motiv { background: var(--dark); color: #e8e4dc; border-radius: 12px;
+         padding: 16px 20px; margin-bottom: 22px;
+         display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.motiv-text { font-family: 'DM Serif Display', serif; font-size: 15px; font-style: italic; line-height: 1.5; flex: 1; }
+.motiv-btn  { background: none; border: 1px solid #2a2820; color: #4a4540; border-radius: 6px;
+              padding: 4px 10px; font-size: 11px; cursor: pointer; font-family: 'DM Sans', sans-serif;
+              transition: all .14s; white-space: nowrap; }
+.motiv-btn:hover { border-color: #5a5550; color: #e8e4dc; }
+
+.exam-banner { border-radius: 10px; padding: 12px 18px; display: flex;
+               align-items: center; justify-content: space-between;
+               border: 1px solid #f0d0c0; background: #fff8f5; margin-bottom: 8px; }
+.exam-banner.urgent { background: #fff0ee; border-color: #e8b0a8; }
+.eb-left .elabel { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--orange); margin-bottom: 3px; }
+.eb-left .ename  { font-family: 'DM Serif Display', serif; font-size: 15px; }
+.eb-right .edays { font-family: 'DM Mono', monospace; font-size: 34px; color: var(--orange); line-height: 1; text-align: right; }
+.eb-right .edsub { font-size: 10px; color: var(--t3); text-align: right; margin-top: 2px; }
+
+.stat-num   { font-family: 'DM Serif Display', serif; font-size: 34px; line-height: 1; margin-bottom: 3px; }
+.stat-label { font-size: 11px; color: var(--t2); }
+
+.exam-prog-card { background: var(--surface); border: 1px solid var(--border); border-radius: 11px; padding: 16px; }
+.ep-name { font-size: 13px; font-weight: 500; margin-bottom: 2px; display: flex; align-items: center; gap: 7px; }
+.ep-dot  { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.ep-meta { font-size: 11px; color: var(--t3); margin-bottom: 8px; }
+.ep-pct  { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--t2); text-align: right; margin-bottom: 3px; }
+
+.checklist-preview { display: flex; flex-direction: column; gap: 4px; }
+.cl-preview-item { display: flex; align-items: center; gap: 8px; padding: 6px 10px;
+                   border-radius: 7px; background: var(--s2); font-size: 12px; }
+.cl-preview-check { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; display: flex;
+                    align-items: center; justify-content: center; font-size: 9px; }
+.cl-preview-check.done { background: var(--green); color: white; }
+.cl-preview-check.open { border: 1.5px solid var(--border); background: white; }
+
+.disc-bar-wrap { height: 8px; background: var(--s2); border-radius: 4px; overflow: hidden; margin: 8px 0 4px; }
+.disc-bar      { height: 100%; border-radius: 4px; transition: width .6s ease; }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="main">
+  <div class="page">
+
+    <div class="page-h1" id="greet">Good evening.</div>
+    <div class="page-sub" id="dateLabel"></div>
+
+    <!-- Exam banners (next 2) -->
+    <div id="examBanners" style="margin-bottom:22px"></div>
+
+    <!-- Motivation -->
+    <div class="motiv">
+      <div class="motiv-text" id="motivText"></div>
+      <button class="motiv-btn" onclick="nextQuote()">Next ↻</button>
+    </div>
+
+    <!-- Stats row -->
+    <div class="g4" style="margin-bottom:22px">
+      <div class="card-sm">
+        <span class="slabel">Study today</span>
+        <div class="stat-num" id="statMins">0<span style="font-size:14px;color:var(--t2)">m</span></div>
+        <div class="stat-label" id="statMinsLbl">Goal: 180 min</div>
+        <div class="pbar-wrap"><div class="pbar" id="statMinsBar" style="background:var(--green)"></div></div>
+      </div>
+      <div class="card-sm">
+        <span class="slabel">YouTube used</span>
+        <div class="stat-num" id="statYT">0<span style="font-size:14px;color:var(--t2)">m</span></div>
+        <div class="stat-label" id="statYTLbl">Allowance: 30 min</div>
+        <div class="pbar-wrap"><div class="pbar" id="statYTBar" style="background:var(--orange)"></div></div>
+      </div>
+      <div class="card-sm">
+        <span class="slabel">Pomodoros</span>
+        <div class="stat-num" id="statPoms">0</div>
+        <div class="stat-label">completed today</div>
+        <div class="pbar-wrap"><div class="pbar" id="statPomsBar" style="background:var(--blue)"></div></div>
+      </div>
+      <div class="card-sm">
+        <span class="slabel">Discipline</span>
+        <div class="stat-num" id="statDisc">0<span style="font-size:14px;color:var(--t2)">%</span></div>
+        <div class="stat-label">7-day avg</div>
+        <div class="disc-bar-wrap"><div class="disc-bar" id="discBar" style="background:var(--purple)"></div></div>
+      </div>
+    </div>
+
+    <div class="g2" style="margin-bottom:22px">
+      <!-- Exam progress -->
+      <div>
+        <span class="slabel">Exam Progress</span>
+        <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px" id="examProgressList"></div>
+      </div>
+
+      <!-- Today's checklist preview -->
+      <div>
+        <span class="slabel">Today's Checklist</span>
+        <div style="margin-top:8px" id="clPreview"></div>
+        <a href="checklist.html" style="display:inline-block;margin-top:10px;font-size:11px;color:var(--t2);text-decoration:none">
+          Open checklist →
+        </a>
+      </div>
+    </div>
+
+    <!-- Week heatmap -->
+    <span class="slabel">This Week</span>
+    <div class="card" style="margin-top:8px">
+      <div class="week-grid" id="weekGrid"></div>
+    </div>
+
+  </div>
+  </main>
+</div>
+<script src="/src/js/db.js"></script>
+<script src="/src/js/nav.js"></script>
+<script>
+(async function() {
+  await Nav.init('index');
+
+const QUOTES = [
+  "Start ugly. Start small. Starting is the win.",
+  "You don't have to feel ready. You just have to begin.",
+  "You are already in motion. Protect the momentum.",
+  "The exam is close. The knowledge is already in you — just reveal it.",
+  "Keep the next block small and clean.",
+  "One Pomodoro. That's all you need to start.",
+  "Your brain is most alive tonight. Use it.",
+  "Rest is part of the work. Taraweh counts.",
+  "The difficulty is never as bad as the dread before it.",
+];
+let qi = 0;
+function nextQuote() { qi = (qi+1) % QUOTES.length; document.getElementById('motivText').textContent = '"' + QUOTES[qi] + '"'; }
+
+function dynamicQuote() {
+  const mins = DB.get('studyMins'), goal = DB.get('studyGoal') || 180;
+  const yt = DB.get('ytMins'), yta = DB.get('ytAllowance') || 30;
+  if (mins >= 120) return "You are already in motion. Protect the momentum.";
+  if (mins / goal >= 0.6) return "Good. Keep the next block small and clean.";
+  if (yta > 0 && yt >= yta) return "No more video rewards today. Guard your focus.";
+  return QUOTES[qi];
+}
+
+function render() {
+  // greeting
+  const h = new Date().getHours();
+  document.getElementById('greet').textContent =
+    h < 12 ? 'Good morning.' : h < 17 ? 'Good afternoon.' : h < 21 ? 'Good evening.' : 'Late night. This is your peak.';
+  const d = new Date();
+  document.getElementById('dateLabel').textContent =
+    ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][d.getDay()] + ', ' +
+    d.getDate() + ' ' +
+    ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()] + ' ' +
+    d.getFullYear();
+
+  // exam banners
+  const upcoming = DB.upcomingExams(2);
+  document.getElementById('examBanners').innerHTML = upcoming.map(e => {
+    const left = DB.daysUntil(e.date);
+    return `
+      <div class="exam-banner ${left <= 3 ? 'urgent' : ''}" style="border-color:${e.color}22;background:${e.color}08">
+        <div class="eb-left">
+          <div class="elabel" style="color:${e.color}">${e.name}</div>
+          <div class="ename">${e.date ? new Date(e.date).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}) : 'No date'}</div>
+        </div>
+        <div class="eb-right">
+          <div class="edays" style="color:${e.color}">${Math.max(0,left)}</div>
+          <div class="edsub">${left > 1 ? 'days left' : left === 1 ? 'tomorrow' : 'today!'}</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  // motivation
+  document.getElementById('motivText').textContent = '"' + dynamicQuote() + '"';
+
+  // stats
+  const mins = DB.get('studyMins'), goal = DB.get('studyGoal') || 180;
+  const yt   = DB.get('ytMins'),    yta  = DB.get('ytAllowance') || 30;
+  const poms = DB.get('pomsToday');
+  const disc = DB.disciplineScore();
+
+  document.getElementById('statMins').innerHTML    = mins + '<span style="font-size:14px;color:var(--t2)">m</span>';
+  document.getElementById('statMinsLbl').textContent = 'Goal: ' + goal + ' min';
+  document.getElementById('statMinsBar').style.width = Math.min(100, mins/goal*100) + '%';
+
+  document.getElementById('statYT').innerHTML    = yt + '<span style="font-size:14px;color:var(--t2)">m</span>';
+  document.getElementById('statYTLbl').textContent = 'Allowance: ' + yta + ' min';
+  document.getElementById('statYTBar').style.width = Math.min(100, yt/yta*100) + '%';
+
+  document.getElementById('statPoms').textContent = poms;
+  document.getElementById('statPomsBar').style.width = Math.min(100, poms * 20) + '%';
+
+  document.getElementById('statDisc').innerHTML = disc + '<span style="font-size:14px;color:var(--t2)">%</span>';
+  document.getElementById('discBar').style.width = disc + '%';
+  document.getElementById('discBar').style.background = disc >= 70 ? 'var(--green)' : disc >= 40 ? 'var(--gold)' : 'var(--orange)';
+
+  // exam progress
+  const exams = DB.get('exams');
+  document.getElementById('examProgressList').innerHTML = exams.map(e => {
+    const pct = DB.examProgress(e.id);
+    const topics = DB.get('topics').filter(t => t.examId === e.id);
+    const done = topics.filter(t => t.status === 'done').length;
+    const inprog = topics.filter(t => t.status === 'inprogress').length;
+    return `
+      <div class="exam-prog-card">
+        <div class="ep-name"><span class="ep-dot" style="background:${e.color}"></span>${e.name}</div>
+        <div class="ep-meta">${done} done · ${inprog} in progress · ${topics.length} total</div>
+        <div class="ep-pct">${pct}%</div>
+        <div style="height:5px;background:var(--s2);border-radius:3px;overflow:hidden">
+          <div style="height:100%;width:${pct}%;background:${e.color};border-radius:3px;transition:width .5s ease"></div>
+        </div>
+      </div>`;
+  }).join('');
+
+  // checklist preview (first 8 items)
+  const checks  = DB.todayChecklist();
+  const pinned  = DB.get('pinnedToChecklist') || [];
+  const topics  = DB.get('topics');
+  const tasks   = DB.get('tasks');
+
+  const RECURRING = [
+    { id:'r-fajr',   label:'Salat al-Fajr جماعة' },
+    { id:'r-mathm',  label:"Al-Ma'thurat (morning)" },
+    { id:'r-dhikr',  label:'Dhikr ١٠٠×' },
+    { id:'r-taraweh',label:'Taraweh' },
+  ];
+
+  const allItems = [
+    ...RECURRING,
+    ...pinned.map(id => {
+      const t = topics.find(x => x.id === id);
+      if (t) { const ex = (DB.get('exams')||[]).find(e=>e.id===t.examId); return { id, label: t.name + (ex?` · ${ex.name}`:'') }; }
+      const tk = tasks.find(x => x.id === id);
+      if (tk) return { id, label: tk.name };
+      return null;
+    }).filter(Boolean),
+  ];
+
+  const preview = allItems.slice(0, 8);
+  const doneCount = preview.filter(i => checks[i.id]).length;
+
+  document.getElementById('clPreview').innerHTML = preview.length
+    ? `<div class="checklist-preview">
+        ${preview.map(i => `
+          <div class="cl-preview-item">
+            <div class="cl-preview-check ${checks[i.id] ? 'done' : 'open'}">${checks[i.id] ? '✓' : ''}</div>
+            <span style="${checks[i.id] ? 'color:var(--t3);text-decoration:line-through' : ''}">${i.label}</span>
+          </div>`).join('')}
+       </div>
+       <div style="font-size:11px;color:var(--t3);margin-top:8px">${doneCount}/${preview.length} done${allItems.length > 8 ? ` · ${allItems.length - 8} more` : ''}</div>`
+    : '<div style="font-size:12px;color:var(--t3)">No items yet. Add them in Backlog or Checklist.</div>';
+
+  // week heatmap
+  const weekData = DB.get('weekData');
+  const wg = document.getElementById('weekGrid');
+  wg.innerHTML = '';
+  const dl = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  for (let i = 6; i >= 0; i--) {
+    const dd  = new Date(Date.now() - i * 86400000);
+    const dds = dd.toISOString().slice(0,10);
+    const p   = weekData[dds] || 0;
+    const isT = dds === DB.today();
+    const div = document.createElement('div'); div.className = 'wday';
+    div.innerHTML = `<div class="wday-label">${dl[dd.getDay()]}</div>
+      <div class="wday-block ${p>0?'has':''} ${isT?'today':''}" title="${p} pomodoros">${p>0?p:isT?'·':''}</div>`;
+    wg.appendChild(div);
+  }
+}
+
+// Expose functions globally
+window.nextQuote = nextQuote;
+window.render = render;
+
+render();
+})();
+</script>
+</body>
+</html>

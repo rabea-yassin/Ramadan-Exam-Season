@@ -1,0 +1,21 @@
+{
+  "name": "ramadan-exam-season",
+  "version": "1.0.0",
+  "description": "Personal productivity system for exam prep during Ramadan 2026.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "start": "node backend/server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.2.1"
+  }
+}

@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Backlog — Command Center</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/src/css/style.css">
+<style>
+/* ── exam card ── */
+.ex-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 18px; overflow: hidden; }
+.ex-head { padding: 14px 18px; border-bottom: 1px solid var(--border);
+           display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; }
+.ex-head:hover { background: var(--s2); }
+.ex-color-bar { width: 4px; height: 36px; border-radius: 2px; flex-shrink: 0; }
+.ex-head-info { flex: 1; min-width: 0; }
+.ex-head-name { font-family: 'DM Serif Display', serif; font-size: 16px; line-height: 1.2; }
+.ex-head-meta { font-size: 11px; color: var(--t3); margin-top: 2px; }
+.ex-head-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.ex-head-days  { font-family: 'DM Mono', monospace; font-size: 18px; color: var(--orange); line-height: 1; }
+.ex-head-pct   { font-size: 11px; color: var(--t3); }
+.ex-pbar-strip { height: 3px; }
+.ex-body { padding: 0 10px 12px; }
+.ex-body.collapsed { display: none; }
+.ex-chevron { font-size: 11px; color: var(--t3); transition: transform .2s; }
+.ex-chevron.open { transform: rotate(180deg); }
+
+/* ── topic row ── */
+.topic-row { display: flex; align-items: center; gap: 8px; padding: 6px 8px;
+             border-radius: 7px; margin-bottom: 2px; transition: background .14s; }
+.topic-row:hover { background: var(--s2); }
+.topic-name { flex: 1; font-size: 12px; color: var(--text); line-height: 1.3; }
+.topic-name.is-done { color: var(--t3); text-decoration: line-through; }
+.pin-btn { width: 22px; height: 22px; border-radius: 5px; border: 1px solid var(--border);
+           background: none; cursor: pointer; font-size: 11px; color: var(--t3);
+           display: flex; align-items: center; justify-content: center; transition: all .14s; }
+.pin-btn:hover, .pin-btn.pinned { background: #fff9ee; border-color: var(--gold); color: var(--gold); }
+.pin-btn.pinned { background: #fff3d0; }
+
+/* ── add topic inline ── */
+.add-topic-row { display: flex; gap: 6px; padding: 6px 8px; }
+
+/* ── task card ── */
+.task-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+             padding: 13px 15px; display: flex; align-items: flex-start; gap: 10px;
+             margin-bottom: 8px; transition: border-color .14s; }
+.task-card:hover { border-color: #ccc; }
+.task-card.is-done { opacity: .5; }
+.task-left { flex: 1; min-width: 0; }
+.task-name { font-size: 13px; font-weight: 500; margin-bottom: 3px; }
+.task-name.is-done { text-decoration: line-through; color: var(--t3); }
+.task-meta { font-size: 11px; color: var(--t3); display: flex; gap: 10px; flex-wrap: wrap; }
+.task-note { font-size: 11px; color: var(--t2); font-style: italic; margin-top: 3px; }
+.task-imp  { display: flex; gap: 1px; }
+.imp-s     { font-size: 10px; color: var(--border); }
+.imp-s.on  { color: var(--gold); }
+
+/* ── edit exam inline ── */
+.ex-edit-form { padding: 12px 18px; border-top: 1px solid var(--border); background: var(--s2);
+                display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="main">
+  <div class="page">
+
+    <div class="page-h1">Backlog</div>
+    <div class="page-sub">Your master list. Set importance, track status. Pin items to pull into the Daily Checklist.</div>
+
+    <!-- ── EXAMS & TOPICS ─────────────────── -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <span class="slabel" style="margin-bottom:0">Exams & Topics</span>
+      <button class="btn btn-dark btn-sm" onclick="openModal('modal-add-exam')">+ Add Exam</button>
+    </div>
+    <div id="examList"></div>
+
+    <!-- ── GENERAL TASKS ─────────────────── -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin:24px 0 12px">
+      <span class="slabel" style="margin-bottom:0">General Tasks</span>
+      <button class="btn btn-dark btn-sm" onclick="openModal('modal-add-task')">+ Add Task</button>
+    </div>
+    <div class="filter-row" id="taskFilters"></div>
+    <div id="taskList"></div>
+
+  </div>
+  </main>
+</div>
+
+<!-- ── ADD EXAM MODAL ───────────────────────── -->
+<div class="modal-overlay" id="modal-add-exam" onclick="closeModal('modal-add-exam')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-h">Add Exam</div>
+    <div class="modal-row"><label>Course name</label><input class="input" id="ae-name" placeholder="e.g. Operating Systems" /></div>
+    <div class="modal-row"><label>Exam date</label><input class="input" id="ae-date" type="date" /></div>
+    <div class="modal-row"><label>Colour</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px" id="ae-colors">
+        <span class="color-swatch sel" data-c="#2d6e4f" style="background:#2d6e4f"></span>
+        <span class="color-swatch" data-c="#c4622d" style="background:#c4622d"></span>
+        <span class="color-swatch" data-c="#6b3fa0" style="background:#6b3fa0"></span>
+        <span class="color-swatch" data-c="#3b6ea8" style="background:#3b6ea8"></span>
+        <span class="color-swatch" data-c="#c9963a" style="background:#c9963a"></span>
+        <span class="color-swatch" data-c="#b83232" style="background:#b83232"></span>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modal-add-exam')">Cancel</button>
+      <button class="btn btn-dark" onclick="addExam()">Create Exam</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── ADD TASK MODAL ───────────────────────── -->
+<div class="modal-overlay" id="modal-add-task" onclick="closeModal('modal-add-task')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-h">Add Task</div>
+    <div class="modal-row"><label>Task name</label><input class="input" id="at-name" placeholder="What needs to be done?" /></div>
+    <div class="modal-row"><label>Related course (optional)</label>
+      <select class="input" id="at-exam">
+        <option value="">— General / Life task —</option>
+      </select>
+    </div>
+    <div class="modal-row"><label>Due date (optional)</label><input class="input" id="at-due" type="date" /></div>
+    <div class="modal-row"><label>Importance</label>
+      <div style="display:flex;gap:6px;margin-top:6px">
+        <button class="btn btn-ghost btn-sm imp-sel sel" data-v="1">★ Low</button>
+        <button class="btn btn-ghost btn-sm imp-sel" data-v="2">★★ Mid</button>
+        <button class="btn btn-ghost btn-sm imp-sel" data-v="3">★★★ High</button>
+      </div>
+    </div>
+    <div class="modal-row"><label>Notes (optional)</label><textarea class="input" id="at-notes" rows="2" placeholder="Any context..."></textarea></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modal-add-task')">Cancel</button>
+      <button class="btn btn-dark" onclick="addTask()">Add Task</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── EDIT TASK MODAL ───────────────────────── -->
+<div class="modal-overlay" id="modal-edit-task" onclick="closeModal('modal-edit-task')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-h">Edit Task</div>
+    <input type="hidden" id="et-id" />
+    <div class="modal-row"><label>Task name</label><input class="input" id="et-name" /></div>
+    <div class="modal-row">
+      <label>Linked to exam</label>
+      <select class="input" id="et-exam">
+        <option value="">General (no exam)</option>
+      </select>
+    </div>
+    <div class="modal-row"><label>Due date (optional)</label><input class="input" id="et-due" type="date" /></div>
+    <div class="modal-row">
+      <label>Importance</label>
+      <div style="display:flex;gap:8px;margin-top:6px" id="et-imp">
+        <button class="btn btn-sm imp-sel sel" data-v="1" onclick="document.querySelectorAll('#et-imp .imp-sel').forEach(b=>b.classList.remove('sel'));this.classList.add('sel')">1★</button>
+        <button class="btn btn-sm imp-sel" data-v="2" onclick="document.querySelectorAll('#et-imp .imp-sel').forEach(b=>b.classList.remove('sel'));this.classList.add('sel')">2★</button>
+        <button class="btn btn-sm imp-sel" data-v="3" onclick="document.querySelectorAll('#et-imp .imp-sel').forEach(b=>b.classList.remove('sel'));this.classList.add('sel')">3★</button>
+      </div>
+    </div>
+    <div class="modal-row"><label>Notes (optional)</label><textarea class="input" id="et-notes" rows="2"></textarea></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modal-edit-task')">Cancel</button>
+      <button class="btn btn-dark" onclick="saveEditTask()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── EDIT EXAM MODAL ──────────────────────── -->
+<div class="modal-overlay" id="modal-edit-exam" onclick="closeModal('modal-edit-exam')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-h">Edit Exam</div>
+    <input type="hidden" id="ee-id" />
+    <div class="modal-row"><label>Course name</label><input class="input" id="ee-name" /></div>
+    <div class="modal-row"><label>Exam date</label><input class="input" id="ee-date" type="date" /></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modal-edit-exam')">Cancel</button>
+      <button class="btn btn-red btn-sm" onclick="deleteExam(document.getElementById('ee-id').value)">Delete exam</button>
+      <button class="btn btn-dark" onclick="saveExam()">Save</button>
+    </div>
+  </div>
+</div>
+
+<style>
+.color-swatch { width: 24px; height: 24px; border-radius: 50%; cursor: pointer;
+                border: 2px solid transparent; transition: border-color .14s; }
+.color-swatch.sel { border-color: var(--text); }
+#ae-colors .color-swatch:hover { opacity: .8; }
+.imp-sel { border: 1px solid var(--border) !important; }
+.imp-sel.sel { background: var(--text) !important; color: var(--bg) !important; border-color: var(--text) !important; }
+</style>
+
+<script src="/src/js/db.js">})();
+</script>
+<script src="/src/js/nav.js">})();
+</script>
+<script>
+(async function() {
+  await Nav.init('backlog');
+
+// ── colour picker ──────────────────────────
+let selectedColor = '#2d6e4f';
+document.getElementById('ae-colors').addEventListener('click', e => {
+  const sw = e.target.closest('.color-swatch'); if (!sw) return;
+  document.querySelectorAll('#ae-colors .color-swatch').forEach(s => s.classList.remove('sel'));
+  sw.classList.add('sel');
+  selectedColor = sw.dataset.c;
+});
+
+// ── importance picker (add task modal) ────
+let selectedImp = 1;
+document.querySelectorAll('.imp-sel').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.imp-sel').forEach(b => b.classList.remove('sel'));
+    btn.classList.add('sel');
+    selectedImp = parseInt(btn.dataset.v);
+  });
+});
+
+// ── collapsed state ───────────────────────
+const collapsed = {};
+
+// ── RENDER ────────────────────────────────
+function render() {
+  renderExams();
+  renderTaskFilters();
+  renderTasks();
+  populateExamSelect();
+}
+
+function renderExams() {
+  const exams   = DB.get('exams') || [];
+  const topics  = DB.get('topics') || [];
+  const pinned  = DB.get('pinnedToChecklist') || [];
+  const el      = document.getElementById('examList');
+
+  if (!exams.length) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon">◑</div><p>No exams yet.<br>Click "+ Add Exam" to create one.</p></div>';
+    return;
+  }
+
+  el.innerHTML = exams.map(exam => {
+    const examTopics = topics.filter(t => t.examId === exam.id);
+    const pct  = DB.examProgress(exam.id);
+    const done = examTopics.filter(t => t.status === 'done').length;
+    const prog = examTopics.filter(t => t.status === 'inprogress').length;
+    const left = DB.daysUntil(exam.date);
+    const isCollapsed = collapsed[exam.id] !== false; // default collapsed
+
+    const topicsHTML = examTopics.map(t => {
+      const isPinned = pinned.includes(t.id);
+      return `
+        <div class="topic-row">
+          <button class="status-pill sp-${t.status}" onclick="cycleStatus('${t.id}')" title="Click to cycle status">${statusLabel(t.status)}</button>
+          <div class="topic-name ${t.status==='done'?'is-done':''}">${t.name}</div>
+          ${renderImpStars(t)}
+          <button class="pin-btn ${isPinned?'pinned':''}" onclick="togglePin('${t.id}')" title="${isPinned?'Remove from checklist':'Add to daily checklist'}">
+            ${isPinned ? '📌' : '·'}
+          </button>
+          <button class="icon-btn" onclick="deleteTopic('${t.id}')" title="Delete topic">×</button>
+        </div>`;
+    }).join('');
+
+    return `
+      <div class="ex-card">
+        <div class="ex-head" onclick="toggleCollapse('${exam.id}')">
+          <div class="ex-color-bar" style="background:${exam.color}"></div>
+          <div class="ex-head-info">
+            <div class="ex-head-name">${exam.name}</div>
+            <div class="ex-head-meta">${examTopics.length} topics · ${done} done · ${prog} in progress</div>
+          </div>
+          <div class="ex-head-right">
+            ${exam.date ? `<div class="ex-head-days" style="color:${exam.color}">${Math.max(0,left)}d</div>` : ''}
+            <div class="ex-head-pct">${pct}%</div>
+          </div>
+          <button onclick="event.stopPropagation();openEditExam('${exam.id}')" class="btn btn-ghost btn-xs" style="margin-left:6px">Edit</button>
+          <span class="ex-chevron ${isCollapsed?'':'open'}">▼</span>
+        </div>
+        <div style="height:3px;background:${exam.color};opacity:${pct/100}"></div>
+        <div class="ex-body ${isCollapsed?'collapsed':''}" id="exbody-${exam.id}">
+          ${topicsHTML}
+          <div class="add-topic-row">
+            <input class="input" style="font-size:12px;padding:5px 10px" id="newtopic-${exam.id}" placeholder="Add topic…" onkeydown="if(event.key==='Enter')addTopic('${exam.id}')" />
+            <button class="btn btn-dark btn-sm" onclick="addTopic('${exam.id}')">Add</button>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function renderImpStars(t) {
+  let html = '<div style="display:flex;gap:2px;flex-shrink:0">';
+  for (let i = 1; i <= 3; i++) {
+    const on = i <= t.imp;
+    const c  = on ? (t.imp===1?'var(--blue)':t.imp===2?'var(--gold)':'var(--orange)') : 'var(--border)';
+    html += `<span style="font-size:11px;cursor:pointer;color:${c};user-select:none"
+               onclick="setImp('${t.id}',${i})" title="Set importance ${i}">★</span>`;
+  }
+  return html + '</div>';
+}
+
+function toggleCollapse(id) {
+  collapsed[id] = collapsed[id] === false ? true : false; // toggle
+  // easiest: re-render
+  const body    = document.getElementById('exbody-' + id);
+  const chevron = body?.previousElementSibling?.previousElementSibling; // rough, just re-render
+  renderExams();
+}
+
+// ── TASKS ─────────────────────────────────
+let taskFilter = 'all';
+
+function renderTaskFilters() {
+  const exams = DB.get('exams') || [];
+  const fr = document.getElementById('taskFilters');
+  const filters = [
+    { id: 'all', label: 'All' },
+    { id: 'general', label: 'General' },
+    ...exams.map(e => ({ id: e.id, label: e.name })),
+    { id: 'done', label: 'Done' },
+  ];
+  fr.innerHTML = filters.map(f =>
+    `<button class="filter-pill ${taskFilter===f.id?'sel':''}" onclick="setTaskFilter('${f.id}')">${f.label}</button>`
+  ).join('');
+}
+
+function setTaskFilter(id) { taskFilter = id; renderTaskFilters(); renderTasks(); }
+
+function renderTasks() {
+  let tasks = DB.get('tasks') || [];
+  if (taskFilter === 'general') tasks = tasks.filter(t => !t.examId);
+  else if (taskFilter === 'done') tasks = tasks.filter(t => t.done);
+  else if (taskFilter !== 'all') tasks = tasks.filter(t => t.examId === taskFilter);
+  else tasks = tasks.filter(t => !t.done); // 'all' hides done
+
+  const pinned = DB.get('pinnedToChecklist') || [];
+  const exams  = DB.get('exams') || [];
+
+  const el = document.getElementById('taskList');
+  if (!tasks.length) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon">✎</div><p>No tasks here yet.</p></div>';
+    return;
+  }
+
+  el.innerHTML = tasks.map(t => {
+    const isPinned = pinned.includes(t.id);
+    const exam     = exams.find(e => e.id === t.examId);
+    const impStars = [1,2,3].map(i =>
+      `<span class="imp-s ${i<=t.imp?'on':''}" style="${i<=t.imp?'color:'+(t.imp===1?'var(--blue)':t.imp===2?'var(--gold)':'var(--orange)'):''}">★</span>`
+    ).join('');
+    const overdue = t.dueDate && !t.done && DB.daysUntil(t.dueDate) < 0;
+    return `
+      <div class="task-card ${t.done?'is-done':''}">
+        <div class="task-left">
+          <div class="task-name ${t.done?'is-done':''}">${t.name}</div>
+          <div class="task-meta">
+            <span class="task-imp">${impStars}</span>
+            ${exam ? `<span style="color:${exam.color}">${exam.name}</span>` : '<span>General</span>'}
+            ${t.dueDate ? `<span style="${overdue?'color:var(--red);font-weight:600':''}">Due ${formatDate(t.dueDate)}${overdue?' ⚠':''}</span>` : ''}
+          </div>
+          ${t.notes ? `<div class="task-note">${t.notes}</div>` : ''}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end;flex-shrink:0">
+          <button class="status-pill ${t.done?'sp-done':'sp-todo'}" onclick="toggleTaskDone('${t.id}')">
+            ${t.done ? 'Done' : 'To Do'}
+          </button>
+          <button class="pin-btn ${isPinned?'pinned':''}" onclick="togglePin('${t.id}')" title="${isPinned?'Remove from checklist':'Add to daily checklist'}">
+            ${isPinned ? '📌' : '·'}
+          </button>
+          <button class="btn btn-ghost btn-xs" onclick="openEditTask('${t.id}')" title="Edit">Edit</button>
+          <button class="icon-btn" onclick="deleteTask('${t.id}')" title="Delete">×</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function formatDate(d) {
+  if (!d) return '';
+  const parts = d.split('-');
+  const dt = new Date(+parts[0], +parts[1]-1, +parts[2]);
+  return dt.getDate() + ' ' + ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][dt.getMonth()];
+}
+
+function populateExamSelect() {
+  const exams = DB.get('exams') || [];
+  const sel   = document.getElementById('at-exam');
+  sel.innerHTML = '<option value="">— General / Life task —</option>' +
+    exams.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
+}
+
+function statusLabel(s) { return s === 'todo' ? 'TO DO' : s === 'inprogress' ? 'IN PROG' : 'DONE'; }
+
+// ── ACTIONS ───────────────────────────────
+function addExam() {
+  const name = document.getElementById('ae-name').value.trim();
+  if (!name) return;
+  const date = document.getElementById('ae-date').value;
+  DB.update('exams', arr => [...arr, { id: 'ex-' + DB.uid(), name, date, color: selectedColor }]);
+  document.getElementById('ae-name').value = '';
+  document.getElementById('ae-date').value = '';
+  closeModal('modal-add-exam');
+  render();
+  toast('Exam added', name);
+}
+
+function openEditExam(id) {
+  const exam = (DB.get('exams')||[]).find(e => e.id === id);
+  if (!exam) return;
+  document.getElementById('ee-id').value   = id;
+  document.getElementById('ee-name').value = exam.name;
+  document.getElementById('ee-date').value = exam.date || '';
+  openModal('modal-edit-exam');
+}
+
+function saveExam() {
+  const id   = document.getElementById('ee-id').value;
+  const name = document.getElementById('ee-name').value.trim();
+  const date = document.getElementById('ee-date').value;
+  if (!name) return;
+  DB.update('exams', arr => arr.map(e => e.id === id ? { ...e, name, date } : e));
+  closeModal('modal-edit-exam');
+  render();
+  toast('Exam updated');
+}
+
+function deleteExam(id) {
+  if (!confirm('Delete this exam and all its topics?')) return;
+  DB.update('exams',  arr => arr.filter(e => e.id !== id));
+  DB.update('topics', arr => arr.filter(t => t.examId !== id));
+  closeModal('modal-edit-exam');
+  render();
+  toast('Exam deleted');
+}
+
+function addTopic(examId) {
+  const inp = document.getElementById('newtopic-' + examId);
+  const name = inp.value.trim(); if (!name) return;
+  DB.update('topics', arr => [...arr, { id: 't-' + DB.uid(), examId, name, status: 'todo', imp: 1 }]);
+  inp.value = '';
+  renderExams();
+}
+
+function deleteTopic(id) {
+  DB.update('topics', arr => arr.filter(t => t.id !== id));
+  DB.update('pinnedToChecklist', arr => arr.filter(x => x !== id));
+  renderExams();
+}
+
+function cycleStatus(id) {
+  const cycle = ['todo','inprogress','done'];
+  DB.update('topics', arr => arr.map(t => {
+    if (t.id !== id) return t;
+    return { ...t, status: cycle[(cycle.indexOf(t.status)+1) % cycle.length] };
+  }));
+  renderExams();
+}
+
+function setImp(id, val) {
+  DB.update('topics', arr => arr.map(t => t.id === id ? { ...t, imp: t.imp === val ? 1 : val } : t));
+  renderExams();
+}
+
+function togglePin(id) {
+  const pinned  = DB.get('pinnedToChecklist') || [];
+  const wasPin  = pinned.includes(id);
+  DB.set('pinnedToChecklist', wasPin ? pinned.filter(x=>x!==id) : [...pinned, id]);
+  renderExams();
+  renderTasks();
+  toast(wasPin ? 'Removed from checklist' : 'Pinned to Daily Checklist ✓');
+}
+
+function addTask() {
+  const name = document.getElementById('at-name').value.trim();
+  if (!name) return;
+  const task = {
+    id:      'task-' + DB.uid(),
+    name,
+    examId:  document.getElementById('at-exam').value || null,
+    dueDate: document.getElementById('at-due').value || null,
+    imp:     selectedImp,
+    notes:   document.getElementById('at-notes').value.trim(),
+    done:    false,
+  };
+  DB.update('tasks', arr => [task, ...arr]);
+  // reset form
+  document.getElementById('at-name').value = '';
+  document.getElementById('at-due').value  = '';
+  document.getElementById('at-notes').value = '';
+  selectedImp = 1;
+  document.querySelectorAll('.imp-sel').forEach((b,i) => b.classList.toggle('sel', i===0));
+  closeModal('modal-add-task');
+  renderTasks();
+  toast('Task added', name);
+}
+
+function toggleTaskDone(id) {
+  DB.update('tasks', arr => arr.map(t => t.id === id ? { ...t, done: !t.done } : t));
+  renderTasks();
+}
+
+function openEditTask(id) {
+  const task = (DB.get('tasks') || []).find(t => t.id === id);
+  if (!task) return;
+  
+  document.getElementById('et-id').value = id;
+  document.getElementById('et-name').value = task.name;
+  document.getElementById('et-exam').value = task.examId || '';
+  document.getElementById('et-due').value = task.dueDate || '';
+  document.getElementById('et-notes').value = task.notes || '';
+  
+  // Set importance
+  document.querySelectorAll('#et-imp .imp-sel').forEach((b, i) => {
+    b.classList.toggle('sel', i + 1 === task.imp);
+  });
+  
+  // Populate exam dropdown
+  const exams = DB.get('exams') || [];
+  const examSelect = document.getElementById('et-exam');
+  examSelect.innerHTML = '<option value="">General (no exam)</option>' +
+    exams.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
+  examSelect.value = task.examId || '';
+  
+  openModal('modal-edit-task');
+}
+
+function saveEditTask() {
+  const id = document.getElementById('et-id').value;
+  const name = document.getElementById('et-name').value.trim();
+  if (!name) return;
+  
+  const examId = document.getElementById('et-exam').value || null;
+  const dueDate = document.getElementById('et-due').value || null;
+  const notes = document.getElementById('et-notes').value.trim();
+  const imp = parseInt(document.querySelector('#et-imp .imp-sel.sel').dataset.v);
+  
+  DB.update('tasks', arr => arr.map(t => 
+    t.id === id ? { ...t, name, examId, dueDate, notes, imp } : t
+  ));
+  
+  closeModal('modal-edit-task');
+  renderTasks();
+  toast('Task updated');
+}
+
+function deleteTask(id) {
+  DB.update('tasks', arr => arr.filter(t => t.id !== id));
+  DB.update('pinnedToChecklist', arr => arr.filter(x => x !== id));
+  renderTasks();
+}
+
+// ── Expose functions globally for onclick handlers ──
+window.render = render;
+window.toggleCollapse = toggleCollapse;
+window.openEditExam = openEditExam;
+window.saveExam = saveExam;
+window.deleteExam = deleteExam;
+window.addTopic = addTopic;
+window.deleteTopic = deleteTopic;
+window.cycleStatus = cycleStatus;
+window.togglePin = togglePin;
+window.setTaskFilter = setTaskFilter;
+window.renderTasks = renderTasks;
+window.addTask = addTask;
+window.openEditTask = openEditTask;
+window.saveEditTask = saveEditTask;
+window.toggleTaskDone = toggleTaskDone;
+window.deleteTask = deleteTask;
+
+// ── INIT ──────────────────────────────────
+render();
+})();
+</script>
+</body>
+</html>

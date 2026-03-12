@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Watch Later — Command Center</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/src/css/style.css">
+<style>
+.vc      { background: var(--surface); border: 1px solid var(--border); border-radius: 9px;
+           padding: 12px 15px; display: flex; align-items: center; gap: 11px;
+           margin-bottom: 7px; transition: border-color .15s; }
+.vc:hover        { border-color: #ccc; }
+.vc.watched      { opacity: .4; }
+.vi      { width: 32px; height: 32px; border-radius: 6px; background: #fff0e8;
+           display: flex; align-items: center; justify-content: center;
+           font-size: 13px; flex-shrink: 0; }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="main">
+  <div class="page">
+
+    <div class="page-h1">Watch Later</div>
+    <div class="page-sub">Queue it now. Watch only after a completed Pomodoro.</div>
+
+    <!-- Add form -->
+    <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:15px">
+      <input  class="input" id="vt" placeholder="Video title or topic..." style="flex:2;min-width:140px">
+      <input  class="input" id="vn" placeholder="Why save it?"           style="flex:1;min-width:100px">
+      <input  class="input" id="vdur" placeholder="Duration"             style="width:85px;flex:none">
+      <select class="input" id="vc"                                       style="width:120px;flex:none"></select>
+      <button class="btn btn-dark" onclick="addVid()">Add</button>
+    </div>
+
+    <!-- Category filters -->
+    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:14px" id="vf"></div>
+
+    <!-- Video list -->
+    <div id="vl"></div>
+
+    <!-- Rules reminder -->
+    <div class="card-sm" style="margin-top:22px">
+      <div class="slabel">Rules</div>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-top:7px">
+        <div style="padding:10px 13px;border-radius:7px;background:#fff0f0;border:1px solid #f0c0c0;color:#7a2020;font-size:12px">
+          No YouTube before the first real study block.
+        </div>
+        <div style="padding:10px 13px;border-radius:7px;background:#f0fff4;border:1px solid #a0e0b0;color:#1a5030;font-size:12px">
+          Save it here instead of opening it now. The urge passes.
+        </div>
+      </div>
+    </div>
+
+  </div>
+  </main>
+</div>
+<script src="/src/js/db.js">})();
+</script>
+<script src="/src/js/nav.js">})();
+</script>
+<script>
+(async function() {
+  await Nav.init('watchlater');
+
+// Populate category select
+const cs = document.getElementById('vc');
+['General', 'After exams 🎉', ...DB.get('exams').map(e => e.name)].forEach(o => {
+  const op = document.createElement('option');
+  op.value = op.textContent = o;
+  cs.appendChild(op);
+});
+
+let vf = 'All';
+
+function addVid() {
+  const t = document.getElementById('vt').value.trim();
+  if (!t) return;
+  DB.update('videos', vs => [{
+    id:      DB.uid(),
+    title:   t,
+    note:    document.getElementById('vn').value.trim(),
+    dur:     document.getElementById('vdur').value.trim(),
+    cat:     cs.value,
+    watched: false,
+  }, ...vs]);
+  document.getElementById('vt').value   = '';
+  document.getElementById('vn').value   = '';
+  document.getElementById('vdur').value = '';
+  renderVids();
+}
+
+function renderVids() {
+  const videos = DB.get('videos');
+
+  // Rebuild filter pills
+  const cats = ['All', ...new Set(videos.map(v => v.cat))];
+  const fr = document.getElementById('vf');
+  fr.innerHTML = '';
+  cats.forEach(c => {
+    const b = document.createElement('button');
+    b.className = 'btn btn-ghost btn-xs' + (vf === c ? ' btn-dark' : '');
+    b.style.borderRadius = '20px';
+    b.textContent = c;
+    b.onclick = () => { vf = c; renderVids(); };
+    fr.appendChild(b);
+  });
+
+  // Render video cards
+  const list = document.getElementById('vl');
+  list.innerHTML = '';
+  const filtered = vf === 'All' ? videos : videos.filter(v => v.cat === vf);
+  if (!filtered.length) {
+    list.innerHTML = '<div class="empty"><div class="empty-icon">▷</div><p>Nothing queued yet.</p></div>';
+    return;
+  }
+  filtered.forEach(v => {
+    const card = document.createElement('div');
+    card.className = 'vc' + (v.watched ? ' watched' : '');
+    card.innerHTML =
+        '<div class="vi">▷</div>'
+      + '<div style="flex:1;min-width:0">'
+      +   '<div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + v.title + '</div>'
+      +   '<div style="font-size:11px;color:var(--t3);margin-top:1px">' + v.cat + (v.dur ? ' · ' + v.dur : '') + '</div>'
+      +   (v.note ? '<div style="font-size:11px;color:var(--t2);font-style:italic;margin-top:2px">' + v.note + '</div>' : '')
+      + '</div>'
+      + '<div style="display:flex;gap:4px">'
+      +   '<button class="icon-btn" title="' + (v.watched ? 'Unwatch' : 'Mark watched') + '" onclick="tVid(\'' + v.id + '\')">' + (v.watched ? '↩' : '✓') + '</button>'
+      +   '<button class="icon-btn" title="Delete" onclick="dVid(\'' + v.id + '\')">×</button>'
+      + '</div>';
+    list.appendChild(card);
+  });
+}
+
+function tVid(id) {
+  DB.update('videos', vs => vs.map(v => v.id === id ? { ...v, watched: !v.watched } : v));
+  renderVids();
+}
+
+function dVid(id) {
+  DB.update('videos', vs => vs.filter(v => v.id !== id));
+  renderVids();
+}
+
+// Expose functions globally
+window.addVid = addVid;
+window.tVid = tVid;
+window.dVid = dVid;
+
+renderVids();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Daily Checklist — Command Center</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/src/css/style.css">
+<style>
+.cl-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; gap:12px; flex-wrap:wrap; }
+.cl-prog-outer { width:200px; height:6px; background:var(--s2); border-radius:3px; overflow:hidden; }
+.cl-prog-inner { height:100%; border-radius:3px; background:var(--green); transition:width .4s ease; }
+.cl-pct-txt { font-family:'DM Mono',monospace; font-size:12px; color:var(--t2); }
+
+/* study summary banner */
+.study-banner { background:var(--dark); color:#e8e4dc; border-radius:11px;
+  padding:14px 20px; margin-bottom:22px; display:flex; align-items:center; gap:24px; flex-wrap:wrap; }
+.sb-stat { text-align:center; }
+.sb-num  { font-family:'DM Serif Display',serif; font-size:28px; line-height:1; }
+.sb-lbl  { font-size:9px; letter-spacing:2px; text-transform:uppercase; color:#3a3830; margin-top:2px; }
+
+/* section */
+.cl-section { margin-bottom:20px; }
+.cl-sec-hd  { font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--t3);
+  display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+.cl-sec-hd::after { content:''; flex:1; height:1px; background:var(--border); }
+
+/* item */
+.cl-item { display:flex; align-items:flex-start; gap:10px; padding:9px 12px;
+  border-radius:9px; cursor:pointer; transition:background .13s; margin-bottom:3px; }
+.cl-item:hover { background:var(--s2); }
+.cl-item.study { border-left:3px solid var(--blue); }
+.cl-item.study.imp-2 { border-left-color:var(--gold); }
+.cl-item.study.imp-3 { border-left-color:var(--orange); }
+.cl-item.overdue { background:#fff5f5; border-left-color:var(--red) !important; }
+.cl-item.relig { border-left:2px solid var(--gold); }
+.cl-item.checked { opacity:.5; }
+
+/* checkbox */
+.cl-box { width:18px; height:18px; border:1.5px solid var(--border); border-radius:5px;
+  flex-shrink:0; margin-top:1px; display:flex; align-items:center; justify-content:center;
+  font-size:11px; transition:all .18s; }
+.cl-item.checked  .cl-box { background:var(--green); border-color:var(--green); color:#fff; }
+.cl-item.relig    .cl-box { border-color:var(--gold); }
+.cl-item.relig.checked .cl-box { background:var(--gold); border-color:var(--gold); }
+
+/* text */
+.cl-text { flex:1; font-size:13px; line-height:1.4; color:var(--text); }
+.cl-item.checked .cl-text { color:var(--t3); text-decoration:line-through; }
+.cl-arabic { font-size:12px; color:var(--gold); direction:rtl; margin-top:2px; }
+.cl-meta   { font-size:10px; color:var(--t3); margin-top:3px; display:flex; gap:8px; flex-wrap:wrap; }
+.cl-exam-dot { width:5px; height:5px; border-radius:50%; display:inline-block;
+               margin-right:3px; vertical-align:middle; }
+
+/* importance badge */
+.imp-badge { font-family:'DM Mono',monospace; font-size:9px; padding:1px 6px;
+  border-radius:8px; flex-shrink:0; margin-top:2px; }
+.imp-badge.imp-1 { background:var(--s2); color:var(--t3); }
+.imp-badge.imp-2 { background:#fff9ee; color:#a07010; }
+.imp-badge.imp-3 { background:#fff0e8; color:var(--orange); }
+
+/* unpin button */
+.cl-unpin { width:20px; height:20px; border:none; background:none; cursor:pointer;
+  font-size:12px; color:var(--t3); flex-shrink:0; opacity:0; transition:opacity .13s;
+  display:flex; align-items:center; justify-content:center; border-radius:4px; }
+.cl-item:hover .cl-unpin { opacity:1; }
+.cl-unpin:hover { color:var(--red); background:var(--s2); }
+
+.go-backlog { display:inline-flex; align-items:center; gap:6px; padding:8px 14px;
+  border-radius:8px; border:1px dashed var(--border); font-size:12px; color:var(--t2);
+  text-decoration:none; transition:all .13s; background:none;
+  font-family:'DM Sans',sans-serif; cursor:pointer; }
+.go-backlog:hover { border-color:var(--text); color:var(--text); background:var(--s2); }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="main">
+  <div class="page">
+
+    <div class="page-h1">Daily Checklist</div>
+    <div class="page-sub" id="clDate"></div>
+
+    <!-- Progress -->
+    <div class="cl-header">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="cl-prog-outer"><div class="cl-prog-inner" id="clBar"></div></div>
+          <div class="cl-pct-txt" id="clPct">0/0</div>
+        </div>
+        <div style="font-size:11px;color:var(--t3)" id="clPtsHint"></div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="resetDay()">Reset day</button>
+    </div>
+
+    <!-- Study summary -->
+    <div class="study-banner" id="studyBanner" style="display:none">
+      <div style="flex:1;min-width:120px">
+        <div style="font-size:12px;color:#5a5550;margin-bottom:2px">Study progress today</div>
+        <div style="font-size:11px;color:#3a3830" id="sbDesc">0 of 0 topics checked</div>
+      </div>
+      <div class="sb-stat">
+        <div class="sb-num" id="sbEarned">0</div>
+        <div class="sb-lbl">pts earned</div>
+      </div>
+      <div class="sb-stat">
+        <div class="sb-num" id="sbTotal">0</div>
+        <div class="sb-lbl">pts total</div>
+      </div>
+      <div class="sb-stat">
+        <div class="sb-num" id="sbPct">0%</div>
+        <div class="sb-lbl">weighted</div>
+      </div>
+    </div>
+
+    <div id="clBody"></div>
+
+    <div style="margin-top:24px;padding-top:18px;border-top:1px solid var(--border)">
+      <a href="backlog.html" class="go-backlog">◑ Backlog — pin topics &amp; tasks to today →</a>
+    </div>
+
+  </div>
+  </main>
+</div>
+
+<script src="/src/js/db.js">})();
+</script>
+<script src="/src/js/nav.js">})();
+</script>
+<script>
+(async function() {
+  await Nav.init('checklist');
+
+// ── Recurring items — lean, 8 total ──────────
+// Religious tasks + minimal daily anchors only.
+// Study content comes from backlog.
+const RECURRING = [
+  {
+    id: 'religion', label: 'RELIGION', relig: true,
+    items: [
+      { id:'r-fajr',    text:'Salat al-Fajr جماعة',   ar:'صلاة الفجر جماعة' },
+      { id:'r-mathm',   text:"Al-Ma'thurat (morning)", ar:'المأثورات' },
+      { id:'r-dhikr',   text:'Dhikr 100×',              ar:'الذكر ١٠٠ مرة' },
+      { id:'r-mathe',   text:"Al-Ma'thurat (evening)",  ar:'المأثورات' },
+      { id:'r-taraweh', text:'Taraweh',                  ar:'التراويح' },
+    ]
+  },
+  {
+    id: 'habits', label: 'DAILY ANCHORS', relig: false,
+    items: [
+      { id:'r-goal',  text:"Wrote today's ONE goal on the board" },
+      { id:'r-phone', text:'Phone in another room before studying' },
+      { id:'r-sleep', text:'In bed before 2:30am' },
+    ]
+  },
+];
+
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const DAYS   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+function render() {
+  const now = new Date();
+  document.getElementById('clDate').textContent =
+    DAYS[now.getDay()] + ', ' + now.getDate() + ' ' + MONTHS[now.getMonth()];
+
+  const checks  = DB.todayChecklist();
+  const pinned  = DB.get('pinnedToChecklist') || [];
+  const topics  = DB.get('topics')  || [];
+  const tasks   = DB.get('tasks')   || [];
+  const exams   = DB.get('exams')   || [];
+
+  // ── Resolve pinned IDs → full item objects ──
+  const studyItems = pinned.map(id => {
+    const t = topics.find(x => x.id === id);
+    if (t) {
+      const ex = exams.find(e => e.id === t.examId);
+      return { id, text: t.name, kind: 'topic', examId: t.examId,
+               examName: ex?.name, examColor: ex?.color,
+               status: t.status, imp: t.imp };
+    }
+    const tk = tasks.find(x => x.id === id);
+    if (tk) {
+      const ex = exams.find(e => e.id === tk.examId);
+      return { id, text: tk.name, kind: 'task',
+               examName: ex?.name || 'General', examColor: ex?.color,
+               dueDate: tk.dueDate, imp: tk.imp };
+    }
+    return null;   // item was deleted from backlog — silently skip
+  }).filter(Boolean);
+
+  // ── Study summary stats ──────────────────
+  const studyDone   = studyItems.filter(i => !!checks[i.id]);
+  const earnedPts   = studyDone.reduce((s, i) => s + i.imp, 0);
+  const totalPts    = studyItems.reduce((s, i) => s + i.imp, 0);
+  const studyPct    = totalPts ? Math.round(earnedPts / totalPts * 100) : 0;
+
+  const bannerEl = document.getElementById('studyBanner');
+  if (studyItems.length) {
+    bannerEl.style.display = 'flex';
+    document.getElementById('sbDesc').textContent   = studyDone.length + ' of ' + studyItems.length + ' topics checked';
+    document.getElementById('sbEarned').textContent = earnedPts;
+    document.getElementById('sbTotal').textContent  = totalPts;
+    document.getElementById('sbPct').textContent    = studyPct + '%';
+  } else {
+    bannerEl.style.display = 'none';
+  }
+
+  // ── Build page HTML ──────────────────────
+  let html = '';
+  let totalItems = 0, doneItems = 0;
+  // Points: study items weighted by imp, recurring items = 1pt each
+  let allPts = totalPts, earnedAll = earnedPts;
+
+  // ── 1. STUDY (top, from backlog) ─────────
+  if (studyItems.length) {
+    // Group by exam / general
+    const groups = {};
+    studyItems.forEach(item => {
+      const key = item.examId || '__general';
+      if (!groups[key]) groups[key] = {
+        label: item.examName || 'General', color: item.examColor || 'var(--t3)', items: []
+      };
+      groups[key].items.push(item);
+    });
+
+    html += `<div class="cl-section"><div class="cl-sec-hd">STUDY · FROM BACKLOG</div>`;
+
+    Object.values(groups).forEach(g => {
+      html += `<div style="margin-bottom:10px">
+        <div style="font-size:10px;font-weight:600;color:${g.color};
+                    letter-spacing:1px;text-transform:uppercase;
+                    margin-bottom:5px;padding-left:12px">${g.label}</div>`;
+
+      g.items.forEach(item => {
+        const checked = !!checks[item.id];
+        totalItems++; if (checked) doneItems++;
+        const overdue = item.dueDate && DB.daysUntil(item.dueDate) < 0;
+        const statusText = item.status ? statusLabel(item.status) : '';
+
+        html += `
+          <div class="cl-item study imp-${item.imp} ${checked ? 'checked' : ''} ${overdue ? 'overdue' : ''}"
+               onclick="toggle('${item.id}')">
+            <div class="cl-box">${checked ? '✓' : ''}</div>
+            <div class="cl-text">
+              ${item.text}
+              <div class="cl-meta">
+                ${item.examColor ? `<span><span class="cl-exam-dot" style="background:${item.examColor}"></span>${item.examName}</span>` : ''}
+                ${statusText ? `<span>${statusText}</span>` : ''}
+                ${item.dueDate ? `<span style="${overdue ? 'color:var(--red);font-weight:600' : ''}">Due ${fmtDate(item.dueDate)}${overdue ? ' ⚠ OVERDUE' : ''}</span>` : ''}
+              </div>
+            </div>
+            <span class="imp-badge imp-${item.imp}">${item.imp}★</span>
+            <button class="cl-unpin" onclick="event.stopPropagation();unpin('${item.id}')" title="Remove from today">✕</button>
+          </div>`;
+      });
+      html += '</div>';
+    });
+    html += '</div>';
+
+  } else {
+    html += `<div class="cl-section">
+      <div class="cl-sec-hd">STUDY · FROM BACKLOG</div>
+      <div style="padding:16px 12px;font-size:12px;color:var(--t3);font-style:italic;
+                  border:1px dashed var(--border);border-radius:9px;text-align:center;
+                  line-height:1.8">
+        No study topics pinned yet.<br>
+        Go to <a href="backlog.html" style="color:var(--text)">Backlog</a> and click
+        <span style="font-size:14px">📌</span> next to any topic or task.
+      </div>
+    </div>`;
+  }
+
+  // ── 2. RECURRING (below study) ───────────
+  RECURRING.forEach(sec => {
+    html += `<div class="cl-section"><div class="cl-sec-hd">${sec.label}</div>`;
+    sec.items.forEach(item => {
+      const checked = !!checks[item.id];
+      totalItems++; allPts++; if (checked) { doneItems++; earnedAll++; }
+      html += `
+        <div class="cl-item ${checked ? 'checked' : ''} ${sec.relig ? 'relig' : ''}"
+             onclick="toggle('${item.id}')">
+          <div class="cl-box">${checked ? '✓' : ''}</div>
+          <div class="cl-text">
+            ${item.text}
+            ${item.ar ? `<div class="cl-arabic">${item.ar}</div>` : ''}
+          </div>
+        </div>`;
+    });
+    html += '</div>';
+  });
+
+  document.getElementById('clBody').innerHTML = html;
+
+  // ── Progress bar (weighted) ───────────────
+  const pct = allPts ? Math.round(earnedAll / allPts * 100) : 0;
+  document.getElementById('clBar').style.width = pct + '%';
+  document.getElementById('clPct').textContent = doneItems + ' / ' + totalItems;
+  document.getElementById('clPtsHint').textContent =
+    earnedAll + ' / ' + allPts + ' pts  ·  higher-★ topics count more';
+}
+
+// ── Actions ───────────────────────────────────
+function toggle(id) {
+  const was = !!DB.todayChecklist()[id];
+  DB.setChecklistItem(id, !was);
+
+  // Sync with backlog
+  if (!was) {
+    // Just checked - update status in backlog
+    const topics = DB.get('topics') || [];
+    const tasks = DB.get('tasks') || [];
+    
+    const topic = topics.find(t => t.id === id);
+    const task = tasks.find(t => t.id === id);
+    
+    if (topic) {
+      // For topics: todo → inprogress, inprogress → done
+      const newStatus = topic.status === 'todo' ? 'inprogress' : 'done';
+      DB.update('topics', arr =>
+        arr.map(t => t.id === id ? { ...t, status: newStatus } : t)
+      );
+    }
+    
+    if (task) {
+      // For tasks: mark as done
+      DB.update('tasks', arr =>
+        arr.map(t => t.id === id ? { ...t, done: true } : t)
+      );
+    }
+  }
+  render();
+}
+
+function unpin(id) {
+  DB.update('pinnedToChecklist', arr => arr.filter(x => x !== id));
+  toast('Removed from today', 'Still in your Backlog.');
+  render();
+}
+
+function resetDay() {
+  if (!confirm("Reset today's checklist?")) return;
+  DB.update('checklist', c => { c[DB.today()] = {}; return c; });
+  render();
+}
+
+function statusLabel(s) {
+  return s === 'todo' ? 'To Do' : s === 'inprogress' ? 'In Progress' : 'Done';
+}
+function fmtDate(d) {
+  if (!d) return '';
+  const dt = new Date(d + 'T12:00:00');
+  return dt.getDate() + ' ' + MONTHS[dt.getMonth()];
+}
+
+// Expose functions globally
+window.render = render;
+window.toggle = toggle;
+window.unpin = unpin;
+window.resetDay = resetDay;
+
+render();
+})();
+</script>
+</body>
+</html>
