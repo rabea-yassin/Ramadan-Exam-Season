@@ -166,6 +166,40 @@ const Predictor = {
   }
 };
 
+// ── Tab Notification ───────────────────────────
+let originalTitle = document.title;
+let notificationInterval = null;
+
+function showTabNotification() {
+  let visible = true;
+  notificationInterval = setInterval(() => {
+    document.title = visible ? '🔔 Timer Done!' : originalTitle;
+    visible = !visible;
+  }, 1000);
+}
+
+function clearTabNotification() {
+  if (notificationInterval) {
+    clearInterval(notificationInterval);
+    notificationInterval = null;
+  }
+  document.title = originalTitle;
+}
+
+// Clear notification when user returns to tab
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) {
+    clearTabNotification();
+  }
+});
+      state = Math.min(3, state + 1); // Move toward Strongly Yes
+    } else {
+      state = Math.max(0, state - 1); // Move toward Strongly No
+    }
+    this.setState(key, state);
+  }
+};
+
 // ── Bell Sound ─────────────────────────────────
 function playBell() {
   const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -360,8 +394,9 @@ function togglePom() {
 
       syncUI(); renderDots(); renderHeat();
       
-      // Play bell and show auto-start prompt
+      // Play bell, show tab notification, and show auto-start prompt
       playBell();
+      showTabNotification();
       toast('Pomodoro complete! 🎉', 'Take your break. You earned it.');
       setTimeout(() => {
         showAutoStartModal('rest', 'Start your break timer?');
@@ -423,8 +458,9 @@ function toggleYt() {
       localStorage.removeItem('timerState');
       syncUI();
       
-      // Play bell and show auto-start prompt
+      // Play bell, show tab notification, and show auto-start prompt
       playBell();
+      showTabNotification();
       toast('Rest time is up.', 'Close it. Back to work.');
       setTimeout(() => {
         showAutoStartModal('pomodoro', 'Start another Pomodoro session?');
