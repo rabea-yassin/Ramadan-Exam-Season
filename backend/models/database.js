@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const DATA_FILE = path.resolve(__dirname, '..', '..', 'data.json');
+const DATA_FILE = path.resolve(__dirname, '..', 'data.json');
 
 const DEFAULT_DATA = {
   streak: 0,

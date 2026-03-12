@@ -160,9 +160,12 @@ Your exams and topics will now appear in the dashboard.
 
 ```
 ├── backend/
+│   ├── models/
+│   │   └── database.js     # Data persistence layer
+│   ├── routes/
+│   │   └── api.js          # API endpoints
 │   ├── server.js           # Express server
-│   ├── routes/api.js       # API endpoints
-│   └── models/database.js  # Data persistence
+│   └── data.json           # YOUR DATA (gitignored)
 ├── frontend/
 │   ├── pages/              # HTML pages
 │   │   ├── index.html      # Dashboard
@@ -174,7 +177,10 @@ Your exams and topics will now appear in the dashboard.
 │   └── src/
 │       ├── js/             # JavaScript modules
 │       └── css/style.css   # Design system
-├── data.json               # YOUR DATA (auto-created)
+├── docs/
+│   ├── DESIGN.md           # Design philosophy
+│   └── GIT_GUIDE.md        # Git workflow guide
+├── README.md               # This file
 └── package.json
 ```
 
@@ -220,14 +226,14 @@ Your exams and topics will now appear in the dashboard.
 
 ## Data Backup
 
-Your data is stored in `data.json`. To backup:
+Your data is stored in `backend/data.json`. To backup:
 
 ```bash
 # Create backup
-cp data.json data-backup-$(date +%Y%m%d).json
+cp backend/data.json backend/data-backup-$(date +%Y%m%d).json
 
 # Restore from backup
-cp data-backup-20260312.json data.json
+cp backend/data-backup-20260312.json backend/data.json
 ```
 
 ## Customization
