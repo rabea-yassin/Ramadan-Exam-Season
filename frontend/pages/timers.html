@@ -25,6 +25,14 @@
 
     <div class="page-h1">Timers</div>
     <div class="page-sub">Space bar starts / pauses the Pomodoro</div>
+    
+    <!-- Auto-start predictor toggle -->
+    <div style="max-width:640px;margin-bottom:12px">
+      <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--t2);cursor:pointer">
+        <input type="checkbox" id="predictorToggle" checked style="cursor:pointer">
+        <span>Smart auto-start (learns your preference)</span>
+      </label>
+    </div>
 
     <div class="g2" style="max-width:640px;margin-bottom:18px">
 
@@ -112,9 +120,129 @@
 </script>
 <script src="/src/js/nav.js">})();
 </script>
+
+<!-- Modal for auto-start prompt -->
+<div id="autoStartModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:9999;align-items:center;justify-content:center">
+  <div style="background:var(--bg);border-radius:12px;padding:24px;max-width:400px;box-shadow:0 8px 32px rgba(0,0,0,0.3)">
+    <div style="font-size:18px;margin-bottom:8px;color:var(--text)">Timer Complete! 🎉</div>
+    <div style="font-size:13px;color:var(--t2);margin-bottom:20px" id="modalMessage"></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-green" onclick="autoStartResponse(true)" style="flex:1">Yes, Start</button>
+      <button class="btn btn-ghost" onclick="autoStartResponse(false)" style="flex:1">No Thanks</button>
+    </div>
+  </div>
+</div>
+
 <script>
 (async function() {
   await Nav.init('timers');
+
+// ── 2-bit Branch Predictor ────────────────────
+// States: 0=Strongly No, 1=Weakly No, 2=Weakly Yes, 3=Strongly Yes
+const Predictor = {
+  getState(key) {
+    const state = localStorage.getItem(`predictor_${key}`);
+    return state === null ? 2 : parseInt(state); // Default: Weakly Yes
+  },
+  
+  setState(key, state) {
+    localStorage.setItem(`predictor_${key}`, state);
+  },
+  
+  predict(key) {
+    return this.getState(key) >= 2; // Predict Yes if Weakly/Strongly Yes
+  },
+  
+  update(key, actual) {
+    let state = this.getState(key);
+    if (actual) {
+      state = Math.min(3, state + 1); // Move toward Strongly Yes
+    } else {
+      state = Math.max(0, state - 1); // Move toward Strongly No
+    }
+    this.setState(key, state);
+  }
+};
+
+// ── Bell Sound ─────────────────────────────────
+function playBell() {
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const oscillator = audioCtx.createOscillator();
+  const gainNode = audioCtx.createGain();
+  
+  oscillator.connect(gainNode);
+  gainNode.connect(audioCtx.destination);
+  
+  oscillator.frequency.value = 800;
+  oscillator.type = 'sine';
+  
+  gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+  gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+  
+  oscillator.start(audioCtx.currentTime);
+  oscillator.stop(audioCtx.currentTime + 0.5);
+  
+  // Second bell
+  setTimeout(() => {
+    const osc2 = audioCtx.createOscillator();
+    const gain2 = audioCtx.createGain();
+    osc2.connect(gain2);
+    gain2.connect(audioCtx.destination);
+    osc2.frequency.value = 800;
+    osc2.type = 'sine';
+    gain2.gain.setValueAtTime(0.3, audioCtx.currentTime);
+    gain2.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+    osc2.start(audioCtx.currentTime);
+    osc2.stop(audioCtx.currentTime + 0.5);
+  }, 200);
+}
+
+// ── Auto-start Modal ───────────────────────────
+let pendingAutoStart = null;
+
+function showAutoStartModal(nextTimer, message) {
+  if (!document.getElementById('predictorToggle').checked) return;
+  
+  const predictorKey = nextTimer === 'rest' ? 'pom_to_rest' : 'rest_to_pom';
+  const shouldAuto = Predictor.predict(predictorKey);
+  
+  if (shouldAuto) {
+    // Auto-start based on prediction
+    if (nextTimer === 'rest') {
+      toggleYt();
+    } else {
+      togglePom();
+    }
+    toast('Auto-started!', 'Prediction: You usually start the next timer');
+    Predictor.update(predictorKey, true); // Assume correct unless user stops it
+  } else {
+    // Show modal
+    pendingAutoStart = { timer: nextTimer, key: predictorKey };
+    document.getElementById('modalMessage').textContent = message;
+    document.getElementById('autoStartModal').style.display = 'flex';
+  }
+}
+
+function autoStartResponse(yes) {
+  document.getElementById('autoStartModal').style.display = 'none';
+  
+  if (pendingAutoStart) {
+    Predictor.update(pendingAutoStart.key, yes);
+    
+    if (yes) {
+      if (pendingAutoStart.timer === 'rest') {
+        toggleYt();
+      } else {
+        togglePom();
+      }
+    }
+    
+    pendingAutoStart = null;
+  }
+}
+
+// Expose globally
+window.autoStartResponse = autoStartResponse;
 
 // ── Timer state ───────────────────────────────
 let pomDur = 25*60, pomRem = 25*60, pomRun = false, pomInt = null;
@@ -229,7 +357,13 @@ function togglePom() {
       localStorage.removeItem('timerState'); // Clear localStorage
 
       syncUI(); renderDots(); renderHeat();
+      
+      // Play bell and show auto-start prompt
+      playBell();
       toast('Pomodoro complete! 🎉', 'Take your break. You earned it.');
+      setTimeout(() => {
+        showAutoStartModal('rest', 'Start your break timer?');
+      }, 1000);
 
       pomRem = pomDur;
       setTimeout(() => {
@@ -286,7 +420,13 @@ function toggleYt() {
       DB.set('ytMins', DB.get('ytMins') + Math.round(ytDur / 60));
       localStorage.removeItem('timerState');
       syncUI();
+      
+      // Play bell and show auto-start prompt
+      playBell();
       toast('Rest time is up.', 'Close it. Back to work.');
+      setTimeout(() => {
+        showAutoStartModal('pomodoro', 'Start another Pomodoro session?');
+      }, 1000);
 
       ytRem = ytDur;
       setTimeout(() => {

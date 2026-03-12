@@ -4,3 +4,4 @@ data-backup-*.json
 *.log
 package-lock.json
 data.json
+GIT_GUIDE.md
