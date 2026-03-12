@@ -1,12 +1,18 @@
-# Command Center — Exam Productivity System
+# Ramadan Exam Season — Productivity System
 
-A personal productivity system for exam preparation with Pomodoro timers, task management, and progress tracking.
+A personal productivity system for balancing Ramadan worship with exam preparation. Integrates Islamic practices (Fajr, Dhikr, Taraweh) with focused study sessions using Pomodoro timers, task management, and progress tracking.
 
 ## Features
 
 - **3-Layer Task System**: Backlog → Daily Checklist → Dashboard
 - **Weighted Progress Tracking**: Topics weighted by importance (1-3 scale)
-- **Pomodoro Timer**: Focus sessions with break management
+- **Smart Pomodoro Timer**: 
+  - Focus sessions with break management
+  - Bell sound notifications on completion
+  - Flashing tab alerts when timer ends
+  - 2-bit predictor learns your auto-start preferences
+  - Remembers timer state across page refreshes
+- **Ramadan Rituals Tracker**: Fajr, Dhikr, Taraweh, Quran tracking
 - **7-Day Heatmap**: Visual discipline tracking
 - **File-Based Storage**: All data in `data.json` (easy backup, version control)
 - **No Build Step**: Plain HTML/CSS/JS
