@@ -213,9 +213,29 @@ function renderNotes() {
     <div class="sticky-note">
       <button class="sticky-delete" onclick="deleteNote(${idx})">×</button>
       <div class="sticky-time">${fmtTime(note.timestamp)}</div>
-      <div>${note.text.replace(/\n/g, '<br>')}</div>
+      <div class="sticky-content" onclick="editNote(${idx})" style="cursor:pointer">${note.text.replace(/\n/g, '<br>')}</div>
     </div>
   `).join('');
+}
+
+function editNote(idx) {
+  const bl = DB.get('battleLog');
+  const note = bl[vd][idx];
+  
+  const newText = prompt('Edit note:', note.text);
+  if (newText === null) return; // Cancelled
+  
+  if (newText.trim() === '') {
+    if (confirm('Empty note. Delete it?')) {
+      deleteNote(idx);
+    }
+    return;
+  }
+  
+  bl[vd][idx].text = newText.trim();
+  DB.set('battleLog', bl);
+  renderNotes();
+  toast('Note updated', '');
 }
 
 function pinNote() {
@@ -266,6 +286,7 @@ document.getElementById('noteInput').addEventListener('keydown', (e) => {
 // Expose functions globally
 window.pinNote = pinNote;
 window.deleteNote = deleteNote;
+window.editNote = editNote;
 
 renderDates();
 renderNotes();
