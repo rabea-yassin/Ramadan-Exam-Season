@@ -136,6 +136,13 @@
 </div>
 
 <script>
+// Define functions immediately for onclick handlers
+window.setPre = () => {};
+window.togglePom = () => {};
+window.resetPom = () => {};
+window.toggleYt = () => {};
+window.resetYt = () => {};
+
 (async function() {
   await Nav.init('timers');
 
@@ -192,13 +199,7 @@ document.addEventListener('visibilitychange', () => {
     clearTabNotification();
   }
 });
-      state = Math.min(3, state + 1); // Move toward Strongly Yes
-    } else {
-      state = Math.max(0, state - 1); // Move toward Strongly No
-    }
-    this.setState(key, state);
-  }
-};
+
 
 // ── Bell Sound ─────────────────────────────────
 function playBell() {
