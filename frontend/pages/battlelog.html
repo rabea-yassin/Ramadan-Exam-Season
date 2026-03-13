@@ -211,7 +211,7 @@ function renderNotes() {
   
   grid.innerHTML = notes.map((note, idx) => `
     <div class="sticky-note">
-      ${isToday ? `<button class="sticky-delete" onclick="deleteNote(${idx})">×</button>` : ''}
+      <button class="sticky-delete" onclick="deleteNote(${idx})">×</button>
       <div class="sticky-time">${fmtTime(note.timestamp)}</div>
       <div>${note.text.replace(/\n/g, '<br>')}</div>
     </div>
