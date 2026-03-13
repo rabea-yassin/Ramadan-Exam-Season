@@ -175,6 +175,16 @@ function renderDates() {
 function renderNotes() {
   const grid = document.getElementById('notesGrid');
   const bl = DB.get('battleLog');
+  
+  // Migration: convert old string format to new array format
+  if (bl[vd] && typeof bl[vd] === 'string') {
+    bl[vd] = [{
+      text: bl[vd],
+      timestamp: Date.now()
+    }];
+    DB.set('battleLog', bl);
+  }
+  
   const notes = bl[vd] || [];
   
   document.getElementById('viewLbl').textContent =
