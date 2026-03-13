@@ -210,7 +210,7 @@ function renderNotes() {
   }
   
   grid.innerHTML = notes.map((note, idx) => `
-    <div class="sticky-note">
+    <div class="sticky-note" id="note-${idx}">
       <button class="sticky-delete" onclick="deleteNote(${idx})">×</button>
       <div class="sticky-time">${fmtTime(note.timestamp)}</div>
       <div class="sticky-content" onclick="editNote(${idx})" style="cursor:pointer">${note.text.replace(/\n/g, '<br>')}</div>
@@ -221,21 +221,46 @@ function renderNotes() {
 function editNote(idx) {
   const bl = DB.get('battleLog');
   const note = bl[vd][idx];
+  const noteEl = document.getElementById(`note-${idx}`);
   
-  const newText = prompt('Edit note:', note.text);
-  if (newText === null) return; // Cancelled
+  // Replace note with textarea
+  noteEl.innerHTML = `
+    <div class="sticky-time">${fmtTime(note.timestamp)}</div>
+    <textarea class="sticky-input" id="edit-${idx}" style="width:100%;min-height:150px;margin:0">${note.text}</textarea>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="pin-btn" onclick="saveEdit(${idx})" style="flex:1">💾 Save</button>
+      <button class="pin-btn" onclick="cancelEdit(${idx})" style="flex:1;background:var(--t3)">Cancel</button>
+    </div>
+  `;
   
-  if (newText.trim() === '') {
+  // Focus and select all
+  const textarea = document.getElementById(`edit-${idx}`);
+  textarea.focus();
+  textarea.setSelectionRange(0, 0);
+}
+
+function saveEdit(idx) {
+  const textarea = document.getElementById(`edit-${idx}`);
+  const newText = textarea.value.trim();
+  
+  if (newText === '') {
     if (confirm('Empty note. Delete it?')) {
       deleteNote(idx);
+    } else {
+      cancelEdit(idx);
     }
     return;
   }
   
-  bl[vd][idx].text = newText.trim();
+  const bl = DB.get('battleLog');
+  bl[vd][idx].text = newText;
   DB.set('battleLog', bl);
   renderNotes();
   toast('Note updated', '');
+}
+
+function cancelEdit(idx) {
+  renderNotes();
 }
 
 function pinNote() {
@@ -287,6 +312,8 @@ document.getElementById('noteInput').addEventListener('keydown', (e) => {
 window.pinNote = pinNote;
 window.deleteNote = deleteNote;
 window.editNote = editNote;
+window.saveEdit = saveEdit;
+window.cancelEdit = cancelEdit;
 
 renderDates();
 renderNotes();
