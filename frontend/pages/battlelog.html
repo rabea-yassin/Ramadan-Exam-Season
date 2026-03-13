@@ -17,6 +17,113 @@
            font-family: 'DM Mono', monospace; color: var(--t2); transition: all .15s; }
 .db:hover           { border-color: var(--text); color: var(--text); }
 .db.active          { background: var(--dark); color: white; border-color: var(--dark); }
+
+/* Sticky note styles */
+.sticky-input { 
+  width: 100%; 
+  max-width: 400px; 
+  min-height: 200px; 
+  padding: 16px; 
+  border: none;
+  border-radius: 3px;
+  background: linear-gradient(135deg, #f5f1e8 0%, #ebe7dc 100%);
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.08);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #2a2820;
+  resize: vertical;
+  transition: all 0.2s;
+}
+.sticky-input:focus {
+  outline: none;
+  box-shadow: 0 6px 12px rgba(0,0,0,0.15), 0 2px 4px rgba(0,0,0,0.1);
+  transform: translateY(-2px);
+}
+
+.pin-btn {
+  margin-top: 8px;
+  padding: 8px 20px;
+  background: var(--green);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.pin-btn:hover {
+  background: #2d6e4f;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(45, 110, 79, 0.3);
+}
+
+.notes-grid {
+  margin-top: 20px;
+  column-count: 3;
+  column-gap: 16px;
+}
+
+@media (max-width: 1200px) {
+  .notes-grid { column-count: 2; }
+}
+
+@media (max-width: 768px) {
+  .notes-grid { column-count: 1; }
+}
+
+.sticky-note {
+  position: relative;
+  padding: 16px;
+  margin-bottom: 16px;
+  background: linear-gradient(135deg, #f5f1e8 0%, #ebe7dc 100%);
+  border-radius: 3px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.08);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #2a2820;
+  word-wrap: break-word;
+  transition: all 0.2s;
+  break-inside: avoid;
+  display: inline-block;
+  width: 100%;
+}
+.sticky-note:hover {
+  transform: translateY(-2px) rotate(0deg);
+  box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+}
+.sticky-note:nth-child(odd) {
+  transform: rotate(-1deg);
+}
+.sticky-note:nth-child(even) {
+  transform: rotate(1deg);
+}
+
+.sticky-time {
+  font-size: 10px;
+  color: #8b7355;
+  font-family: 'DM Mono', monospace;
+  margin-bottom: 8px;
+}
+
+.sticky-delete {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: none;
+  border: none;
+  color: #8b7355;
+  cursor: pointer;
+  font-size: 16px;
+  opacity: 0.5;
+  transition: opacity 0.2s;
+}
+.sticky-delete:hover {
+  opacity: 1;
+  color: #c4622d;
+}
 </style>
 </head>
 <body>
@@ -26,13 +133,18 @@
   <div class="page">
 
     <div class="page-h1">Battle Log</div>
-    <div class="page-sub">What worked? What confused you? What is tomorrow's first task?</div>
+    <div class="page-sub">Pin your thoughts like sticky notes on a board</div>
 
     <div class="db-row" id="dateRow"></div>
-    <div style="font-size:11px;color:var(--t3);margin-bottom:7px" id="viewLbl"></div>
-    <textarea class="input" id="la" rows="14"
-      placeholder="Write anything. Topics covered, confusions, tomorrow's first task..."></textarea>
-    <div style="margin-top:7px;font-size:11px;color:var(--t3)">Auto-saved as you type.</div>
+    <div style="font-size:11px;color:var(--t3);margin-bottom:12px" id="viewLbl"></div>
+    
+    <div style="max-width:400px" id="inputArea">
+      <textarea class="sticky-input" id="noteInput" rows="8"
+        placeholder="Write your thoughts... What worked? What confused you? Tomorrow's first task?"></textarea>
+      <button class="pin-btn" onclick="pinNote()">📌 Pin It</button>
+    </div>
+
+    <div class="notes-grid" id="notesGrid"></div>
 
   </div>
   </main>
@@ -50,37 +162,161 @@ function fmtDate(d) {
   return new Date(y, m - 1, day).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+function fmtTime(timestamp) {
+  return new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+}
+
 function renderDates() {
   const row = document.getElementById('dateRow');
   row.innerHTML = '';
   const ds = new Set([DB.today()]);
-  Object.keys(DB.get('battleLog')).forEach(d => ds.add(d));
+  const bl = DB.get('battleLog');
+  Object.keys(bl).forEach(d => ds.add(d));
   [...ds].sort((a, b) => b.localeCompare(a)).slice(0, 10).forEach(d => {
     const b = document.createElement('button');
     b.className = 'db' + (d === vd ? ' active' : '');
-    b.textContent = d === DB.today() ? 'Today' : fmtDate(d);
-    b.onclick = () => { vd = d; renderDates(); renderArea(); };
+    const noteCount = bl[d] ? bl[d].length : 0;
+    b.textContent = (d === DB.today() ? 'Today' : fmtDate(d)) + (noteCount ? ` (${noteCount})` : '');
+    b.onclick = () => { vd = d; renderDates(); renderNotes(); };
     row.appendChild(b);
   });
 }
 
-function renderArea() {
-  const a = document.getElementById('la');
-  a.value = DB.get('battleLog')[vd] || '';
-  document.getElementById('viewLbl').textContent =
-    vd === DB.today() ? 'Writing for today' : 'Viewing: ' + fmtDate(vd);
-  a.oninput = () => {
-    const bl = DB.get('battleLog');
-    bl[vd] = a.value;
+function renderNotes() {
+  const grid = document.getElementById('notesGrid');
+  const bl = DB.get('battleLog');
+  
+  // Migration: convert old string format to new array format
+  if (bl[vd] && typeof bl[vd] === 'string') {
+    bl[vd] = [{
+      text: bl[vd],
+      timestamp: Date.now()
+    }];
     DB.set('battleLog', bl);
-  };
+  }
+  
+  const notes = bl[vd] || [];
+  const isToday = vd === DB.today();
+  
+  // Show/hide input area based on whether viewing today
+  document.getElementById('inputArea').style.display = isToday ? 'block' : 'none';
+  
+  document.getElementById('viewLbl').textContent =
+    isToday ? 'Writing for today' : 'Viewing: ' + fmtDate(vd) + ' (read-only)';
+  
+  if (notes.length === 0) {
+    grid.innerHTML = `<div style="color:var(--t3);font-size:12px;font-style:italic">${isToday ? 'No notes yet. Write something and pin it!' : 'No notes for this day.'}</div>`;
+    return;
+  }
+  
+  grid.innerHTML = notes.map((note, idx) => `
+    <div class="sticky-note" id="note-${idx}">
+      <button class="sticky-delete" onclick="deleteNote(${idx})">×</button>
+      <div class="sticky-time">${fmtTime(note.timestamp)}</div>
+      <div class="sticky-content" onclick="editNote(${idx})" style="cursor:pointer">${note.text.replace(/\n/g, '<br>')}</div>
+    </div>
+  `).join('');
 }
 
-renderDates();
-// Expose functions globally
-window.renderArea = renderArea;
+function editNote(idx) {
+  const bl = DB.get('battleLog');
+  const note = bl[vd][idx];
+  const noteEl = document.getElementById(`note-${idx}`);
+  
+  // Replace note with textarea
+  noteEl.innerHTML = `
+    <div class="sticky-time">${fmtTime(note.timestamp)}</div>
+    <textarea class="sticky-input" id="edit-${idx}" style="width:100%;min-height:150px;margin:0">${note.text}</textarea>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="pin-btn" onclick="saveEdit(${idx})" style="flex:1">💾 Save</button>
+      <button class="pin-btn" onclick="cancelEdit(${idx})" style="flex:1;background:var(--t3)">Cancel</button>
+    </div>
+  `;
+  
+  // Focus and select all
+  const textarea = document.getElementById(`edit-${idx}`);
+  textarea.focus();
+  textarea.setSelectionRange(0, 0);
+}
 
-renderArea();
+function saveEdit(idx) {
+  const textarea = document.getElementById(`edit-${idx}`);
+  const newText = textarea.value.trim();
+  
+  if (newText === '') {
+    if (confirm('Empty note. Delete it?')) {
+      deleteNote(idx);
+    } else {
+      cancelEdit(idx);
+    }
+    return;
+  }
+  
+  const bl = DB.get('battleLog');
+  bl[vd][idx].text = newText;
+  DB.set('battleLog', bl);
+  renderNotes();
+  toast('Note updated', '');
+}
+
+function cancelEdit(idx) {
+  renderNotes();
+}
+
+function pinNote() {
+  const input = document.getElementById('noteInput');
+  const text = input.value.trim();
+  
+  if (!text) {
+    toast('Empty note', 'Write something first!');
+    return;
+  }
+  
+  const bl = DB.get('battleLog');
+  if (!bl[vd]) bl[vd] = [];
+  
+  bl[vd].push({
+    text: text,
+    timestamp: Date.now()
+  });
+  
+  DB.set('battleLog', bl);
+  input.value = '';
+  renderDates();
+  renderNotes();
+  toast('Note pinned! 📌', 'Added to ' + (vd === DB.today() ? 'today' : fmtDate(vd)));
+}
+
+function deleteNote(idx) {
+  if (!confirm('Delete this note?')) return;
+  
+  const bl = DB.get('battleLog');
+  bl[vd].splice(idx, 1);
+  if (bl[vd].length === 0) delete bl[vd];
+  
+  DB.set('battleLog', bl);
+  renderDates();
+  renderNotes();
+  toast('Note deleted', '');
+}
+
+// Enter key to pin
+document.getElementById('noteInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+    e.preventDefault();
+    pinNote();
+  }
+});
+
+// Expose functions globally
+window.pinNote = pinNote;
+window.deleteNote = deleteNote;
+window.editNote = editNote;
+window.saveEdit = saveEdit;
+window.cancelEdit = cancelEdit;
+
+renderDates();
+renderNotes();
 })();
 </script>
 </body>
