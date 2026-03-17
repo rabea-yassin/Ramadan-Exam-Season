@@ -28,14 +28,15 @@ app.use('/api', apiRoutes);
 // Start server
 const server = app.listen(PORT, () => {
   console.log(`
-╔════════════════════════════════════════╗
-║   Command Center Server Running        ║
-║                                        ║
-║   → http://localhost:${PORT}            ║
-║   → Data file: data.json               ║
-║                                        ║
-║   Press Ctrl+C to stop                 ║
-╚════════════════════════════════════════╝
+╔══════════════════════════════════════════════════════════╗
+║   Command Center Server Running                          ║
+║                                                          ║
+║   → http://localhost:${PORT}                             ║
+║   → Data file: data.json                                 ║
+║   → Click http://localhost:${PORT}/pages/index.html      ║
+║                                                          ║
+║   Press Ctrl+C to stop                                   ║
+╚══════════════════════════════════════════════════════════╝
   `);
 });
 
